@@ -1,12 +1,22 @@
 <script module lang='ts'>
 	import type { Snippet } from 'svelte'
 	import type { ItemState } from './item-state.svelte.js'
+	import type { ContentSnippet } from './reorder.svelte.js'
 
-	// @ts-expect-error
-	export { list }
+	declare const listSnip: (
+		$anchor: HTMLElement,
+		content: () => ContentSnippet,
+		array: () => unknown[],
+		getState: () => (index: number) => ItemState
+	) => ReturnType<Snippet>
+
+	export function list(...args: Parameters<typeof listSnip>) {
+		return listSnip(...args)
+	}
+
 </script>
 
-{#snippet list(content: Snippet<[item: unknown, state: ItemState]>, array: unknown[], getState: (index: number) => ItemState)}
+{#snippet listSnip(content: ContentSnippet, array: unknown[], getState: (index: number) => ItemState)}
 	{#each array as item, i (item)}
 		{@const state = getState(i)}
 		{#if state.area}

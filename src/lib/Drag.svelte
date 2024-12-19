@@ -4,17 +4,19 @@
 	let currentItem = $state(null) as unknown | null
 
 	export function enterArea(areaState: () => AreaState<any>) {
+		if(currentItem === null) return
+
 		const state = areaState()
-		if(currentItem) {
-			if(state.options.condition && !state.options.condition(currentItem)) {
-				return
-			}
-			if(area) {
-				delete area.node.dataset.areaTarget
-				area.isTarget = false
-			}
-			state.isTarget = true
+		
+		if(state.options.condition && !state.options.condition(currentItem)) {
+			return
 		}
+		if(area) {
+			delete area.node.dataset.areaTarget
+			area.isTarget = false
+		}
+		state.isTarget = true
+		
 		area = state
 	}
 
@@ -54,6 +56,7 @@
 
 	let itemState = $derived({
 		...args[1],
+		dragging: true,
 		area
 	} as ItemState)
 

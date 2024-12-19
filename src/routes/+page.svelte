@@ -14,10 +14,7 @@
 		{ label: 'f' }
 	])
 
-	let order = reorder(content, {
-		array,
-		array2
-	})
+	let order = reorder(content, { array, array2 })
 
 	let array1class = $state('a c')
 	let area = $state() as AreaState<typeof array[number]> | undefined
@@ -66,9 +63,7 @@
 	:global([data-area-class~='a']) div {
 		color: cadetblue;
 	}
-	div:global([data-area-condition='false']) > div {
-		border-color: lightcoral;
-	}
+	
 	div:global([data-area-condition='true']) > div {
 		border-color: grey;
 	}
@@ -77,6 +72,9 @@
 	}
 	div:global([data-area-target]) > div {
 		border-color: lightskyblue;
+	}
+	div:global([data-area-condition='false']) > div {
+		border-color: lightcoral;
 	}
 	
 
