@@ -9,8 +9,6 @@ import { sameParent, trackPosition } from './utils.svelte.js'
 export type SnippetArgs<T = any> = [item: T, state: ItemState<T>]
 export type ContentSnippet<T = any> = Snippet<SnippetArgs<T>>
 
-
-
 export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 	const areasMap = new WeakMap<Node, AreaState<any>>()
 

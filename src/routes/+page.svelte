@@ -1,6 +1,6 @@
 <script lang='ts'>
 
-	import { AreaState, reorder, type ItemState } from 'runic-reorder'
+	import reorder, { type AreaState, type ItemState } from 'runic-reorder'
 
 	let array = $state([
 		{ label: 'a' },

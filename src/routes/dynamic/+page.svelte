@@ -1,7 +1,6 @@
 <script lang='ts'>
 
-	import { reorder, type ItemState } from 'runic-reorder'
-	import { flip } from 'svelte/animate'
+	import reorder, { type ItemState } from 'runic-reorder'
 
 	let orphans = $state([{ text: 'Adopt me' }]) as Item[]
 	let columns = $state([
