@@ -15,8 +15,11 @@ export type AreaOptions<T> = {
 	*/
 	class?: string
 
-	/** Acceptance criteria */
+	/** Acceptance criteria, whether an item can be dropped here */
 	condition?: (item: T) => boolean
+
+	/** Modify (or what not) the item when it is dropped into the area. */
+	onDrop?: (item: T) => void
 
 	/**
 	 * Get the AreaState
@@ -31,17 +34,22 @@ export type AreaOptions<T> = {
 
 export const ARRAY = Symbol('runic-reorder.array')
 export class AreaState<T = any> {
+	/** The area element */
 	node: HTMLElement
+
+	/** The area options */
 	options: AreaOptions<T> = $state({})
 
+	/** An array of classes separated by space from the options; `{ class: '...' }` */
 	class = $derived(this.options.class?.split(' ') || [])
 
 	/** Is the dragged item targeting this area? */
 	isTarget = $state(false)
 	/** Did the dragged item come from here? */
 	isOrigin = $state(false)
-
+	/** The items (ItemState) that are within this area */
 	items = $state([] as ItemState<T>[])
+	/** The array associated with this area */
 	get array() {
 		return this[ARRAY]?.()
 	}
