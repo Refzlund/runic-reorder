@@ -1,10 +1,13 @@
 <script module lang='ts'>
 	
-	let area = $state(null) as AreaState<any> | null
 	let currentItem = $state(null) as unknown | null
 
 	/** Current array and index that is being dragged */
-	export const current = $state([[], 0]) as [any[], number]
+	export const current = $state({
+		array: [] as any[],
+		index: 0,
+		area: null as AreaState<any> | null
+	})
 
 	export function enterArea(areaState: () => AreaState<any>) {
 		if(currentItem === null) return
@@ -14,13 +17,13 @@
 		if(state.options.condition && !state.options.condition(currentItem)) {
 			return
 		}
-		if(area) {
-			delete area.node.dataset.areaTarget
-			area.isTarget = false
+		if(current.area) {
+			delete current.area.node.dataset.areaTarget
+			current.area.isTarget = false
 		}
 		state.isTarget = true
 		
-		area = state
+		current.area = state
 	}
 
 </script>
@@ -49,9 +52,9 @@
 
 	let { children, args, stop, position, origin, min, put }: Props = $props()
 	
-	area = origin.area
-	area.isOrigin = true
-	area.isTarget = true
+	current.area = origin.area
+	current.area.isOrigin = true
+	current.area.isTarget = true
 	currentItem = args[0]
 
 	let moved = $state({ x: 0, y: 0 })
@@ -63,26 +66,26 @@
 	let itemState = $derived({
 		...args[1],
 		dragging: true,
-		area,
-		array: current[0],
-		index: current[1]
+		area: current.area,
+		array: current.array,
+		index: current.index
 	} as ItemState)
 
 	origin.area.node.dataset.areaOrigin = 'true'
 
 	$effect(() => {
-		if(area?.isTarget) {
-			area.node.dataset.areaTarget = 'true'
+		if(current.area?.isTarget) {
+			current.area.node.dataset.areaTarget = 'true'
 		}
 	})
 
 	onDestroy(() => {
 		currentItem = null
 		delete origin.area.node.dataset.areaOrigin
-		delete area?.node.dataset.areaTarget
+		delete current.area?.node.dataset.areaTarget
 		origin.area.isOrigin = false
-		if(area) {
-			area.isTarget = false
+		if(current.area) {
+			current.area.isTarget = false
 		}
 	})
 
@@ -95,12 +98,12 @@
 	}
 
 	// * Targeting position *
-	let targetArray = $state(area?.array)
+	let targetArray = $state(current.area?.array)
 	$effect.pre(() => {
-		area
+		current.area
 		untrack(() => {
-			if(area?.array !== targetArray) {
-				targetArray = area?.array
+			if(current.area?.array !== targetArray) {
+				targetArray = current.area?.array
 			}
 		})
 	})
@@ -113,9 +116,9 @@
 		let closest = undefined as undefined | ItemState
 		let closestDistance = Infinity
 		elementPosition
-		area
+		current.area
 		untrack(() => {
-			for(const item of area?.items || []) {
+			for(const item of current.area?.items || []) {
 				if(!closest || (distance(elementPosition, item.position) < closestDistance)) {
 					closest = item
 					closestDistance = distance(elementPosition, item.position)
@@ -131,7 +134,7 @@
 		if(!targetArray || targetIndex === -1) return
 		
 		untrack(() => {
-			const isSelf = (targetItem && (targetItem.array === current[0] && targetIndex === current[1])) || (targetItem?.value === currentItem)
+			const isSelf = (targetItem && (targetItem.array === current.array && targetIndex === current.index)) || (targetItem?.value === currentItem)
 			if(isSelf) return
 			put(targetArray!, targetIndex, currentItem)
 		})
@@ -148,10 +151,10 @@
 <svelte:window
 	onpointermove={e => {
 		e.preventDefault()
-		if(area?.options.axis !== 'y') {
+		if(current.area?.options.axis !== 'y') {
 			moved.x += e.movementX
 		}
-		if(area?.options.axis !== 'x') {
+		if(current.area?.options.axis !== 'x') {
 			moved.y += e.movementY
 		}
 	}}
@@ -161,7 +164,7 @@
 
 <div
 	id='runic-drag'
-	data-area-class={area?.options?.class ?? ''}
+	data-area-class={current.area?.options?.class ?? ''}
 	use:track
 	style='
 		--x: {newPos.x}px;

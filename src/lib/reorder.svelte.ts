@@ -19,18 +19,18 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 	})
 
 	function put(array: any[], index: number, item: any) {
-		current[0].splice(current[1], 1)
+		current.array.splice(current.index, 1)
 		array.splice(index, 0, item)
-		current[0] = array
-		current[1] = index
+		current.array = array
+		current.index = index
 	}
 
 	function getState(anchor: HTMLElement, array: T[], index: number, content: () => ContentSnippet<T>) {
 		const positioningEffect = (itemState: ItemState<T>) => () => {
 			itemState.positioning = reorderState.reordering === itemState.value
-			itemState.draggedIs = reorderState.reordering ? current[0] === itemState.array ? (
-				current[1] === itemState.index - 1 ? 'before' :
-				current[1] === itemState.index + 1 ? 'after' :
+			itemState.draggedIs = reorderState.reordering ? current.array === itemState.array ? (
+				current.index === itemState.index - 1 ? 'before' :
+				current.index === itemState.index + 1 ? 'after' :
 				undefined
 			) : undefined : undefined
 		}
@@ -52,7 +52,7 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 		
 		return new ItemState({
 			anchor, array, index, areasMap, 
-			positioning: array === current[0] && index === current[1],
+			positioning: array === current.array && index === current.index,
 			anchorAction: (itemState, setElement) => (node: HTMLElement) => {
 				const removeElement = setElement(node)
 				$effect.pre(positioningEffect(itemState))
@@ -72,8 +72,8 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 				function startDrag() {
 					const rect = sameParent(node, anchor)!.getBoundingClientRect()
 
-					current[0] = itemState.array
-					current[1] = itemState.index 
+					current.array = itemState.array
+					current.index = itemState.index 
 
 					reorderState.reordering = itemState.value
 					dragged = mount(Drag, {
@@ -91,6 +91,9 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 									unmount(dragged, { outro: false })
 									dragged = null
 								}
+								
+								current.area?.options?.onDrop?.(itemState.value)
+								
 								reorderState.reordering = null
 								itemState.positioning = false
 							}
