@@ -2,7 +2,7 @@ import { mount, tick, unmount, untrack, type Snippet } from 'svelte'
 import { list } from './List.svelte'
 import Drag, { current, enterArea } from './Drag.svelte'
 import { on } from 'svelte/events'
-import { ANCHOR, HANDLE, ItemState } from './item-state.svelte.js'
+import { ANCHOR, HANDLE, ItemState, type HandleOptions } from './item-state.svelte.js'
 import { AreaState, ARRAY, type AreaOptions } from './area-state.svelte.js'
 import { sameParent, trackPosition } from './utils.svelte.js'
 
@@ -60,13 +60,15 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 				return { destroy() { removeElement() } }
 			},
 			handle: (itemState, setElement) => (node, options = {}) => {
+				const opts = $state(options)
+
 				const removeElement = setElement(node)
 				$effect.pre(positioningEffect(itemState))
 				$effect.pre(positionEffect(itemState))
 
-				if (options.cursor === undefined) {
-					node.style.cursor = 'grab'
-				}
+				$effect(() => {
+					node.style.cursor = opts.cursor ? opts.cursor : 'grab'
+				})
 
 				let dragged: {} | null = null
 				function startDrag() {
@@ -91,7 +93,7 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 									unmount(dragged, { outro: false })
 									dragged = null
 								}
-								
+
 								current.area?.options?.onDrop?.(itemState.value)
 								
 								reorderState.reordering = null
@@ -104,7 +106,7 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 				let cursorTimeoutId: ReturnType<typeof setTimeout> | undefined
 				$effect(() => on(node, 'pointerdown', e => {
 					e.preventDefault()
-					if (options.clickable) {
+					if (opts.clickable) {
 						const cleanMove = on(document, 'pointermove', function () {
 							cleanMove()
 							cleanUp()
@@ -119,7 +121,7 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 						const cleanUp = on(node, 'pointerup', function () {
 							cleanMove()
 							cleanUp()
-							if (options.cursor === undefined) {
+							if (opts.cursor === undefined) {
 								if(cursorTimeoutId) {
 									clearTimeout(cursorTimeoutId)
 								}
@@ -137,6 +139,10 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 				return {
 					destroy() {
 						removeElement()
+					},
+					update(options: HandleOptions) {
+						opts.cursor = options.cursor
+						opts.clickable = options.clickable
 					}
 				}
 			}

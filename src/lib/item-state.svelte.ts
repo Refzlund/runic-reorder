@@ -1,8 +1,11 @@
 import { tick, untrack } from 'svelte'
 import type { AreaState } from './area-state.svelte.js'
 
-interface HandleOptions {
-	/** @default false */
+export interface HandleOptions {
+	/**
+	 * Should you be able to click on the handle?
+	 * @default false
+	*/
 	clickable?: boolean
 
 	/**

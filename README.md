@@ -94,6 +94,14 @@ You can provide each area with custom options, just for that specific area:
 | onDrop | `(item: T) => void` | Modify (or what not) the item when it is dropped into the area. |
 | get | `(areaState: AreaState<T>) => void` | Get the AreaState; <br> `let area = $state() as undefined \| AreaState` <br>and<br> `<div use:order.area.array={{ get: a => area = a }}>` |
 
+<br>
+
+#### `HandleOptions`
+
+| Property | Type | Description |
+| --- | --- | --- |
+| clickable | boolean | Should you be able to click on the handle? |
+| cursor | string | A custom cursor instead of the default "grab" <br> Note: This will override the pointer cursor when clicking on a clickable element. |
 
 <br>
 <br>
@@ -113,6 +121,8 @@ You can provide each area with custom options, just for that specific area:
 | `index` | `number` | The index of this item in its array |
 | `array` | `T[]` | The array this item is in |
 | `value` | `T` | The value of this item |
+
+<br>
 
 #### `AreaState`
 

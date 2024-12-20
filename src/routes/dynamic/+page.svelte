@@ -37,7 +37,7 @@
 {#snippet itemSnippet(item: Item, state: ItemState)}
 	<div
 		class='item'
-		use:state.handle={{ clickable: true }} 
+		use:state.handle={{ clickable: true, cursor: 'pointer' }} 
 		onclick={() => { console.log('+1') }}
 		role='none'
 		style:opacity={state.positioning ? 0 : 1}
