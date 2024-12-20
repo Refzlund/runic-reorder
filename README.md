@@ -42,7 +42,7 @@ That's as simple as it gets. You can move items between each `use:area`. The `@r
 > [!NOTE]  
 > Sadly, the `animate:` directive is not currently supported,
 > as the `@render area(...)` creates the `{@each items as item, i (item)}` loop.  
-> The `animate:` directive can therefore not be used for snippet elements.
+> The `animate:` directive can currently not be used for snippet elements.
 >
 > I'm currently planning on finding an alternative like `use:state.animate={flip}`.
 
@@ -61,7 +61,7 @@ When you create an area using `reorder(snippet)` it serves as a svelte action:
 <br> and a snippet:
 <br> `{@render area(array)}`
 
-The action marks the dropable area for the rendered list, giving you flexibility for structure and accessibility considerations.
+The action marks the dropable area for the rendered list, giving you flexibility for structure- and accessibility considerations.
 
 The **element** with `use:area` will be provided the following `data-attributes`:
 
@@ -75,8 +75,12 @@ The **element** with `use:area` will be provided the following `data-attributes`
 Using selectors such as `div[data-area-condition='true'] {...}`,
 `div[data-area-target]` and `div[data-area-class~='...']` you can style your area according to the situation.
 
+<br>
+
 > [!NOTE]  
 > The reason of `data-area-class` is so that you can also style the dragged item, which is moved to the body doing dragging. [Read more about the `~='...'` selector](https://developer.mozilla.org/en-US/docs/Web/CSS/Attribute_selectors#attrvalue_2)
+
+<br>
 
 You can provide each area with custom options, just for that specific area:
 
@@ -103,8 +107,8 @@ You can provide each area with custom options, just for that specific area:
 | `dragging` | `boolean` | Is this item dragged? |
 | `positioning` | `boolean` | Is this item being positioned somewhere? |
 | `draggedIs` | `undefined \| 'before' \| 'after'` | Is the dragged item the next or previous item in the same array? |
-| `handle` | `(element: HTMLElement, options?: HandleOptions) => void` | The handle is the element that is draggable. |
-| `anchor` | `(element: HTMLElement) => void` | The anchor is the part that a dragged item will use to find the closest item. |
+| `handle` | `(element: HTMLElement, options?: HandleOptions) => void` | The handle is the element that can be dragged upon |
+| `anchor` | `(element: HTMLElement) => void` | (optional) The anchor is the element that a dragged item will referencee to position itself. If not provided, the `use:state.handle` becomes the anchor. |
 | `area` | `AreaState<T>` | The area this item is in. |
 | `index` | `number` | The index of this item in its array |
 | `array` | `T[]` | The array this item is in |
@@ -116,7 +120,7 @@ You can provide each area with custom options, just for that specific area:
 | --- | --- | --- |
 | `node` | `HTMLElement` | The area element |
 | `options` | `AreaOptions<T>` | The area options |
-| `class` | `string[]` | An array of classes separated by space from the options; <br>`{ class: '...' }` |
+| `class` | `string[]` | An array of strigns that represent the class-attribute separated by space |
 | `isTarget` | `boolean` | Is the dragged item targeting this area? |
 | `isOrigin` | `boolean` | Did the dragged item come from here? |
 | `items` | `ItemState<T>[]` | The items (ItemState) that are within this area |
