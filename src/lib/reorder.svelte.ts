@@ -1,41 +1,15 @@
-import { mount, unmount, untrack, type Snippet } from 'svelte'
+import { mount, tick, unmount, untrack, type Snippet } from 'svelte'
 import { list } from './List.svelte'
-import Drag, { enterArea } from './Drag.svelte'
+import Drag, { current, enterArea } from './Drag.svelte'
 import { on } from 'svelte/events'
-import { ItemState } from './item-state.svelte.js'
-import { AreaState, type AreaOptions } from './area-state.svelte.js'
-import { observeMove } from './observe-move.js'
+import { ANCHOR, HANDLE, ItemState } from './item-state.svelte.js'
+import { AreaState, ARRAY, type AreaOptions } from './area-state.svelte.js'
+import { sameParent, trackPosition } from './utils.svelte.js'
 
 export type SnippetArgs<T = any> = [item: T, state: ItemState<T>]
 export type ContentSnippet<T = any> = Snippet<SnippetArgs<T>>
 
-function getPosition(node: HTMLElement) {
-	const rect = node.getBoundingClientRect()
-	return { x: rect.left, y: rect.top }
-}
 
-function trackPosition(node: HTMLElement, isEnabled: () => boolean, setPosition: (position: { x: number, y: number }) => void) {
-	$effect(() => {
-		if(isEnabled()) {
-			setPosition(getPosition(node))
-		}
-	})
-	const ro = new ResizeObserver(() => {
-		if (!isEnabled()) return
-		setPosition(getPosition(node))
-	})
-	const cleanup = observeMove(node, isEnabled, () => {
-		if (!isEnabled()) return
-		setPosition(getPosition(node))
-	})
-	ro.observe(node)
-
-	return () => {
-		ro.unobserve(node)
-		ro.disconnect()
-		cleanup()
-	}
-}
 
 export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 	const areasMap = new WeakMap<Node, AreaState<any>>()
@@ -44,73 +18,84 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 		reordering: null as null | T
 	})
 
+	function put(array: any[], index: number, item: any) {
+		current[0].splice(current[1], 1)
+		array.splice(index, 0, item)
+		current[0] = array
+		current[1] = index
+	}
+
 	function getState(anchor: HTMLElement, array: T[], index: number, content: () => ContentSnippet<T>) {
+		const positioningEffect = (itemState: ItemState<T>) => () => {
+			itemState.positioning = reorderState.reordering === itemState.value
+			itemState.draggedIs = reorderState.reordering ? current[0] === itemState.array ? (
+				current[1] === itemState.index - 1 ? 'before' :
+				current[1] === itemState.index + 1 ? 'after' :
+				undefined
+			) : undefined : undefined
+		}
+
+		let cleanPosition: undefined | (() => void)
+		const positionEffect = (itemState: ItemState<T>) => () => {
+			const node = itemState[ANCHOR] ?? itemState[HANDLE] // Track changes to #anchorElement			if (node && cleanPosition) {
+			cleanPosition?.()
+
+			untrack(() => {
+				if(!node) return
+				cleanPosition = trackPosition(node,
+					() => !!reorderState.reordering && itemState.area.isTarget,
+					position => { itemState.position = position }
+				)
+			})
+			return cleanPosition
+		}
+		
 		return new ItemState({
-			anchor, array, index, areasMap,
+			anchor, array, index, areasMap, 
+			positioning: array === current[0] && index === current[1],
 			anchorAction: (itemState, setElement) => (node: HTMLElement) => {
 				const removeElement = setElement(node)
-
-				let cleanPosition: undefined | (() => void)
-				$effect(() => {
-					itemState.anchorElement // Track changes to anchorElement
-					if (node && cleanPosition) {
-						cleanPosition?.()
-					}
-					else {
-						untrack(() => {
-							cleanPosition = trackPosition(node,
-								() => !!reorderState.reordering && itemState.area.isTarget,
-								position => { itemState.position = position }
-							)
-						})
-						return cleanPosition
-					}
-				})
-
+				$effect.pre(positioningEffect(itemState))
+				$effect.pre(positionEffect(itemState))
 				return { destroy() { removeElement() } }
 			},
 			handle: (itemState, setElement) => (node, options = {}) => {
 				const removeElement = setElement(node)
+				$effect.pre(positioningEffect(itemState))
+				$effect.pre(positionEffect(itemState))
 
-				let cleanPosition: undefined | (() => void)
-				$effect(() => {
-					if (itemState.anchorElement && cleanPosition) {
-						cleanPosition?.()
-					} 
-					else {
-						untrack(() => {
-							cleanPosition = trackPosition(node,
-								() => !!reorderState.reordering && itemState.area.isTarget,
-								position => { itemState.position = position }
-							)
-						})
-						return cleanPosition
-					}
-				})
-
-				const cursorAuto = getComputedStyle(node).cursor === 'auto'
-				if (cursorAuto) {
+				if (options.cursor === undefined) {
 					node.style.cursor = 'grab'
 				}
 
 				let dragged: {} | null = null
-
 				function startDrag() {
-					const rect = node.getBoundingClientRect()
+					const rect = sameParent(node, anchor)!.getBoundingClientRect()
 
-					reorderState.reordering = array[index]
+					current[0] = itemState.array
+					current[1] = itemState.index 
+
+					reorderState.reordering = itemState.value
 					dragged = mount(Drag, {
 						target: document.body,
 						props: {
 							children: content() as ContentSnippet<unknown>,
-							args: [array[index], new ItemState({ dragging: true }, false)],
+							args: [itemState.value, new ItemState({ dragging: true }, false)],
 							position: { x: rect.left, y: rect.top },
+							min: { height: rect.height, width: rect.width },
 							origin: { array, index, area: itemState.area },
-							stop
+							put,
+							stop(e?: Event) {
+								e?.preventDefault()
+								if(dragged) {
+									unmount(dragged, { outro: false })
+									dragged = null
+								}
+								reorderState.reordering = null
+								itemState.positioning = false
+							}
 						}
 					})
-
-					itemState.positioning = true
 				}
 
 				let cursorTimeoutId: ReturnType<typeof setTimeout> | undefined
@@ -131,7 +116,7 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 						const cleanUp = on(node, 'pointerup', function () {
 							cleanMove()
 							cleanUp()
-							if(cursorAuto) {
+							if (options.cursor === undefined) {
 								if(cursorTimeoutId) {
 									clearTimeout(cursorTimeoutId)
 								}
@@ -145,17 +130,6 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 					}
 					startDrag()
 				}))
-
-				function stop(e?: Event) {
-					e?.preventDefault()
-					if (dragged) {
-						unmount(dragged, { outro: false })
-						dragged = null
-					}
-
-					reorderState.reordering = null
-					itemState.positioning = false
-				}
 
 				return {
 					destroy() {
@@ -171,6 +145,20 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 	function area(item: HTMLElement | T[], options: AreaOptions<T> = {}) {
 		if(typeof arguments[1] === 'function' || Array.isArray(item)) {
 			const [anchor, array] = arguments as unknown as [HTMLElement, () => T[]]
+
+			tick().then(() => {
+				let parent = anchor.parentElement as HTMLElement | null | undefined
+				do {
+					const areaState = areasMap.get(parent!)
+					if (areaState) {
+						if(areaState[ARRAY]) {
+							throw new Error('Areas only support listing one array as of right now.')
+						}
+						areaState[ARRAY] = array
+					}
+				} while ((parent = parent?.parentElement) && parent !== document.body)
+			})
+			
 			return list(
 				anchor,
 				() => itemSnippet,

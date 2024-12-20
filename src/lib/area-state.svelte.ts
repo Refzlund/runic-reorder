@@ -1,3 +1,5 @@
+import type { ItemState } from './item-state.svelte.js'
+
 export type AreaOptions<T> = {
 	/**
 	 * Lock movement to one axis
@@ -27,6 +29,7 @@ export type AreaOptions<T> = {
 	get?: (areaState: AreaState<T>) => void
 }
 
+export const ARRAY = Symbol('runic-reorder.array')
 export class AreaState<T = any> {
 	node: HTMLElement
 	options: AreaOptions<T> = $state({})
@@ -37,6 +40,12 @@ export class AreaState<T = any> {
 	isTarget = $state(false)
 	/** Did the dragged item come from here? */
 	isOrigin = $state(false)
+
+	items = $state([] as ItemState<T>[])
+	get array() {
+		return this[ARRAY]?.()
+	}
+	[ARRAY] = undefined as (() => T[]) | undefined
 
 	constructor(node: HTMLElement, options: () => AreaOptions<T>) {
 		this.node = node

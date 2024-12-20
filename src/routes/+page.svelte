@@ -14,7 +14,7 @@
 		{ label: 'f' }
 	])
 
-	let order = reorder(content, { array, array2 })
+	let order = reorder(content)
 
 	let array1class = $state('a c')
 	let area = $state() as AreaState<typeof array[number]> | undefined
@@ -37,7 +37,7 @@
 	</div>
 {/snippet}
 
-<div use:order.area.array={{ class: array1class, get: a => area = a }}>
+<div use:order={{ class: array1class, get: a => area = a }}>
 	<h4>
 		Array 1
 		{#if area?.isOrigin} * {/if}
@@ -45,14 +45,14 @@
 	</h4>
 	
 	<div class="x">
-		{@render order.list.array()}
+		{@render order(array)}
 	</div>
 </div>
 
-<div use:order.area.array2={{ class: 'ab ba', condition: item => !['a', 'e', 'f'].includes(item.label) }}>
+<div use:order={{ class: 'ab ba', condition: item => !['a', 'e', 'f'].includes(item.label) }}>
 	<h4> Array 2 </h4>
 	<div class="y">
-		{@render order.list.array2()}
+		{@render order(array2)}
 	</div>
 </div>
 

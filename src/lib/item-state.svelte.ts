@@ -1,9 +1,15 @@
-import { tick } from 'svelte'
+import { tick, untrack } from 'svelte'
 import type { AreaState } from './area-state.svelte.js'
 
 interface HandleOptions {
 	/** @default false */
 	clickable?: boolean
+
+	/**
+	 * Cursor style
+	 * @default 'auto'
+	*/
+	cursor?: string
 }
 
 type CleanUp = () => void
@@ -21,14 +27,17 @@ interface Construct<T> {
 	dragging?: boolean
 }
 
+export const HANDLE = Symbol('runic-reorder.handle')
+export const ANCHOR = Symbol('runic-reorder.anchor')
+
 export class ItemState<T = any> {
 	/** Is this item dragged? */
 	dragging = $state(false)
 	/** Is this item being positioned somewhere? */
 	positioning = $state(false)
-	/** Is this item being targeted, as an anchor to the dragged item? */
-	targeted = $state(false) as false | 'before' | 'after'
-
+	/** Is the dragged item the next or previous item in the same array? */
+	draggedIs = $state(undefined) as undefined | 'before' | 'after'
+	
 	/**
 	 * The handle is the part that is draggable
 	 * 
@@ -48,14 +57,12 @@ export class ItemState<T = any> {
 	*/
 	anchor = (_: HTMLElement) => {}
 
-	handleElement?: HTMLElement = $state()
-	anchorElement?: HTMLElement = $state()
-
-	// declare private handleElement: HTMLElement | undefined
-	// declare private anchorElement: HTMLElement | undefined
+	#handleElement?: HTMLElement = $state()
+	get [HANDLE]() { return this.#handleElement }
+	#anchorElement?: HTMLElement = $state()
+	get [ANCHOR]() { return this.#anchorElement }
 
 	position = $state({ x: NaN, y: NaN })
-	// test = $derived(console.log(this.position))
 
 	/** The internal svelte $anchor */
 	#anchor = $state() as HTMLElement | undefined
@@ -78,6 +85,7 @@ export class ItemState<T = any> {
 
 	index = $state() as number
 	array = $state() as T[]
+	value = $state() as T
 
 	constructor(o: Construct<T>, getAreaOptions = true) {
 		if (getAreaOptions) {
@@ -86,17 +94,41 @@ export class ItemState<T = any> {
 			this.#areasMap = o.areasMap
 		}
 
+		if ($effect.tracking()) {
+			$effect(() => {
+				if(this.area) {
+					// When area is associated, add this item to the area
+					untrack(() => {
+						if (this.area.items.indexOf(this) === -1) {
+							this.area.items.push(this)
+						}
+					})
+				}
+				return () => {
+					if(this.area) {
+						const index = this.area.items.indexOf(this)
+						if(index !== -1) {
+							this.area.items.splice(index, 1)
+						}
+					}
+				}
+			})
+		}
+
 		this.index = o.index ?? 0
 		this.array = o.array ?? []
+		if(o.array && o.index !== undefined) {
+			this.value = o.array[o.index]
+		}
 
 		this.positioning = o.positioning ?? false
 		this.dragging = o.dragging ?? false
 		this.handle = o.handle?.(this, 
-			el => { this.handleElement = el; return () => this.handleElement === el && (this.handleElement = undefined) }
+			el => { this.#handleElement = el; return () => this.#handleElement === el && (this.#handleElement = undefined) }
 		) ?? (() => { })
 		this.anchor = o.anchorAction?.(
 			this,
-			el => { this.anchorElement = el; return () => this.anchorElement === el && (this.anchorElement = undefined) }
+			el => { this.#anchorElement = el; return () => this.#anchorElement === el && (this.#anchorElement = undefined) }
 		) ?? (() => { })
 	}
 }

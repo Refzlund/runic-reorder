@@ -1,6 +1,7 @@
 <script lang='ts'>
 
 	import { reorder, type ItemState } from 'runic-reorder'
+	import { flip } from 'svelte/animate'
 
 	let orphans = $state([{ text: 'Adopt me' }]) as Item[]
 	let columns = $state([
@@ -69,13 +70,6 @@
 		border-color: hsla(222, 50%, 50%);
 	}
 
-
-	.orphans {
-		> :global(div) {
-			width: fit-content;
-		}
-	}
-
 	.item {
 		display: inline-block;
 		padding: .25rem .5rem;
@@ -94,12 +88,20 @@
 		background-color: hsla(0, 0%, 75%, 1);
 		border-radius: .25rem;
 	}
+
+	.orphans {
+		flex-direction: row;
+		> :global(div) {
+			width: fit-content;
+		}
+	}
 	
 	.area {
 		display: flex;
 		border: 1px dashed hsla(0, 0%, 50%, .3);
 		gap: 1rem;
 		padding: .5rem;
+		overflow: auto;
 	}
 
 </style>
