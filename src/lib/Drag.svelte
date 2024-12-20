@@ -38,30 +38,38 @@
 	import { ItemState } from './item-state.svelte.js'
 	import type { AreaState } from './area-state.svelte.js'
 	import { onDestroy, tick, untrack } from 'svelte'
-	import { trackPosition } from './utils.svelte.js'
+	import { getPosition, trackPosition } from './utils.svelte.js'
 
 	interface Props {
 		children: ContentSnippet<unknown>
 		args: SnippetArgs<unknown>
 		position: { x: number, y: number }
+		offset: { x: number, y: number }
 		origin: { array: any[], index: number, area: AreaState<any> }
 		min: { height: number, width: number }
 		stop(): void
 		put(array: any[], index: number, item: unknown): void
 	}
 
-	let { children, args, stop, position, origin, min, put }: Props = $props()
+	let { children, args, stop, position, offset, origin, min, put }: Props = $props()
 	
+	let draggedElement = $state(null) as HTMLElement | null
+
+	const mousePosition = $state(position)
+	const elementPosition = $derived({ 
+		x: current.area?.options.axis === 'y' ? position.x - offset.x :  mousePosition.x - offset.x, 
+		y: current.area?.options.axis === 'x' ? position.y - offset.y :  mousePosition.y - offset.y
+	})
+	let trackedPosition = $state({ x: 0, y: 0 })
+	$effect.pre(() => {
+		draggedElement
+		untrack(() => requestAnimationFrame(() => trackedPosition = getPosition(draggedElement!)))
+	})
+
 	current.area = origin.area
 	current.area.isOrigin = true
 	current.area.isTarget = true
 	currentItem = args[0]
-
-	let moved = $state({ x: 0, y: 0 })
-	let newPos = $derived({
-		x: position.x + moved.x / (devicePixelRatio.current ?? 1),
-		y: position.y + moved.y / (devicePixelRatio.current ?? 1)
-	})
 
 	let itemState = $derived({
 		...args[1],
@@ -89,14 +97,6 @@
 		}
 	})
 
-	let elementPosition = $state({ x: 0, y: 0 })
-	function track(node: HTMLElement) {
-		$effect(() => trackPosition(node,
-			() => true,
-			position => elementPosition = position
-		))
-	}
-
 	// * Targeting position *
 	let targetArray = $state(current.area?.array)
 	$effect.pre(() => {
@@ -115,29 +115,28 @@
 	const targetItem = $derived.by(() => {
 		let closest = undefined as undefined | ItemState
 		let closestDistance = Infinity
-		elementPosition
+		trackedPosition
+		
 		current.area
 		untrack(() => {
+			// console.log($state.snapshot(closest), $state.snapshot(current.area?.items), $state.snapshot(current.area?.node))
 			for(const item of current.area?.items || []) {
-				if(!closest || (distance(elementPosition, item.position) < closestDistance)) {
+				if(!closest || (distance(trackedPosition, item.position) < closestDistance)) {
 					closest = item
-					closestDistance = distance(elementPosition, item.position)
+					closestDistance = distance(trackedPosition, item.position)
 				}
 			}
+			
 		})
-
 		return closest
 	})
 	const targetIndex = $derived(targetItem?.index || 0)
 
 	$effect.pre(() => {
 		if(!targetArray || targetIndex === -1) return
-		
-		untrack(() => {
-			const isSelf = (targetItem && (targetItem.array === current.array && targetIndex === current.index)) || (targetItem?.value === currentItem)
-			if(isSelf) return
-			put(targetArray!, targetIndex, currentItem)
-		})
+		const isSelf = (targetItem && (targetItem.array === current.array && targetIndex === current.index)) || (targetItem?.value === currentItem)
+		if(isSelf) return
+		untrack(() => put(targetArray!, targetIndex, currentItem))
 	})
 
 </script>
@@ -151,11 +150,16 @@
 <svelte:window
 	onpointermove={e => {
 		e.preventDefault()
-		if(current.area?.options.axis !== 'y') {
-			moved.x += e.movementX
+		mousePosition.x = e.clientX
+		mousePosition.y = e.clientY
+
+		if(draggedElement) {
+			trackedPosition = getPosition(draggedElement)
 		}
-		if(current.area?.options.axis !== 'x') {
-			moved.y += e.movementY
+	}}
+	onscroll={() => {
+		if(draggedElement) {
+			trackedPosition = getPosition(draggedElement)
 		}
 	}}
 	onpointerup={stop}
@@ -164,11 +168,11 @@
 
 <div
 	id='runic-drag'
+	bind:this={draggedElement}
 	data-area-class={current.area?.options?.class ?? ''}
-	use:track
 	style='
-		--x: {newPos.x}px;
-		--y: {newPos.y}px;
+		--x: {elementPosition.x}px;
+		--y: {elementPosition.y}px;
 		--w: {min.width ?? 0}px;
 		--h: {min.height ?? 0}px;
 	'
@@ -183,7 +187,7 @@
 		display: flex;
 		pointer-events: none;
 		user-select: none;
-		position: absolute;
+		position: fixed;
 		top: var(--y);
 		left: var(--x);
 		z-index: 99;

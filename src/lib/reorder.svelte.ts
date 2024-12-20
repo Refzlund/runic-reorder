@@ -2,7 +2,7 @@ import { mount, tick, unmount, untrack, type Snippet } from 'svelte'
 import { list } from './List.svelte'
 import Drag, { current, enterArea } from './Drag.svelte'
 import { on } from 'svelte/events'
-import { ANCHOR, HANDLE, ItemState, type HandleOptions } from './item-state.svelte.js'
+import { ANCHOR, HANDLE, ItemState, POSITION, type HandleOptions } from './item-state.svelte.js'
 import { AreaState, ARRAY, type AreaOptions } from './area-state.svelte.js'
 import { sameParent, trackPosition } from './utils.svelte.js'
 
@@ -42,7 +42,7 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 				if(!node) return
 				cleanPosition = trackPosition(node,
 					() => !!reorderState.reordering && itemState.area.isTarget,
-					position => { itemState.position = position }
+					position => { itemState[POSITION] = position }
 				)
 			})
 			return cleanPosition
@@ -69,11 +69,14 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 				})
 
 				let dragged: {} | null = null
-				function startDrag() {
+				function startDrag(e: PointerEvent) {
 					const rect = sameParent(node, anchor)!.getBoundingClientRect()
 
 					current.array = itemState.array
 					current.index = itemState.index 
+
+					const offset = { x: e.clientX - rect.left, y: e.clientY - rect.top }
+					const mousePosition = { x: e.pageX, y: e.pageY }
 
 					reorderState.reordering = itemState.value
 					dragged = mount(Drag, {
@@ -81,10 +84,12 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 						props: {
 							children: content() as ContentSnippet<unknown>,
 							args: [itemState.value, new ItemState({ dragging: true }, false)],
-							position: { x: rect.left, y: rect.top },
+							position: mousePosition,
+							offset: offset,
 							min: { height: rect.height, width: rect.width },
 							origin: { array, index, area: itemState.area },
 							put,
+							
 							stop(e?: Event) {
 								e?.preventDefault()
 								if(dragged) {
@@ -105,7 +110,7 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 				$effect(() => on(node, 'pointerdown', e => {
 					e.preventDefault()
 					if (opts.clickable) {
-						const cleanMove = on(document, 'pointermove', function () {
+						const cleanMove = on(document, 'pointermove', function (e) {
 							cleanMove()
 							cleanUp()
 							const clean = on(node, 'click', function (e: MouseEvent) {
@@ -114,7 +119,7 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 								clean()
 								return false
 							}, { capture: true })
-							startDrag()
+							startDrag(e)
 						})
 						const cleanUp = on(node, 'pointerup', function () {
 							cleanMove()
@@ -128,10 +133,10 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 									node.style.cursor = 'grab'
 								}, 100)
 							}
-						})						
+						})
 						return
 					}
-					startDrag()
+					startDrag(e)
 				}))
 
 				return {
@@ -176,8 +181,10 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 
 		const node = item
 		const opts = $state(options)
-		const state = new AreaState(node, () => opts)
-
+		let state = areasMap.get(node)
+		if(!state) {
+			state = new AreaState(node, () => opts)
+		}
 		areasMap.set(node, state)
 
 		if (opts.class) {

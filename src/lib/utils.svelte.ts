@@ -10,7 +10,8 @@ export function sameParent(node: HTMLElement, reference: HTMLElement) {
 	return parent
 }
 
-export function getPosition(node: HTMLElement) {
+export function getPosition(node?: HTMLElement) {
+	if(!node) return { x: NaN, y: NaN }
 	const rect = node.getBoundingClientRect()
 	return { x: rect.left, y: rect.top }
 }

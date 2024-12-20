@@ -1,5 +1,6 @@
 import { tick, untrack } from 'svelte'
 import type { AreaState } from './area-state.svelte.js'
+import { getPosition } from './utils.svelte.js'
 
 export interface HandleOptions {
 	/**
@@ -32,6 +33,7 @@ interface Construct<T> {
 
 export const HANDLE = Symbol('runic-reorder.handle')
 export const ANCHOR = Symbol('runic-reorder.anchor')
+export const POSITION = Symbol('runic-reorder.position')
 
 export class ItemState<T = any> {
 	/** Is this item dragged? */
@@ -65,7 +67,13 @@ export class ItemState<T = any> {
 	#anchorElement?: HTMLElement = $state()
 	get [ANCHOR]() { return this.#anchorElement }
 
-	position = $state({ x: NaN, y: NaN })
+	position = $derived.by(() => {
+		const result = isNaN(this.#position.x) ? getPosition(this.#anchorElement ?? this.#handleElement) : this.#position
+		return result
+	})
+	#position = $state({ x: NaN, y: NaN })
+	get [POSITION]() { return this.#position }
+	set [POSITION](value) { this.#position = value }
 
 	/** The internal svelte $anchor */
 	#anchor = $state() as HTMLElement | undefined

@@ -28,7 +28,7 @@
 	{@render itemArea(orphans)}
 </div>
 
-<div class='area' use:columnArea>
+<div class='area' use:columnArea={{ axis:'x' }}>
 	{@render columnArea(columns)}
 </div>
 
@@ -36,7 +36,7 @@
 {#snippet itemSnippet(item: Item, state: ItemState)}
 	<div
 		class='item'
-		use:state.handle={{ clickable: true, cursor: 'pointer' }} 
+		use:state.handle={{ clickable: true }} 
 		onclick={() => { console.log('+1') }}
 		role='none'
 		style:opacity={state.positioning ? 0 : 1}
