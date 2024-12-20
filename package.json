@@ -1,6 +1,6 @@
 {
 	"name": "runic-reorder",
-	"version": "0.0.0",
+	"version": "1.0.0-next.0",
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build && npm run package",
