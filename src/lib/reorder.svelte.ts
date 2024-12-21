@@ -12,9 +12,17 @@ export type ContentSnippet<T = any> = Snippet<SnippetArgs<T>>
 export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 	const areasMap = new WeakMap<Node, AreaState<any>>()
 
-	const reorderState = $state({
-		reordering: null as null | T
-	})
+	let currentItem = $state(null) as T | null
+	const reorderState = {
+		// This over engineering is due to a false-positive
+		// `ownership_invalid_mutation` that you can only appears after building🤷
+		get reordering() {
+			return currentItem
+		},
+		set reordering(item: T | null) {
+			currentItem = item
+		}
+	}
 
 	function put(array: any[], index: number, item: any) {
 		current.array.splice(current.index, 1)
@@ -98,7 +106,6 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 								}
 
 								current.area?.options?.onDrop?.(itemState.value)
-								
 								reorderState.reordering = null
 								itemState.positioning = false
 							}

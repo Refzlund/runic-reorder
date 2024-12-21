@@ -30,10 +30,6 @@
 
 <script lang='ts'>
 
-	import {
-		devicePixelRatio
-	} from 'svelte/reactivity/window'
-
 	import type { ContentSnippet, SnippetArgs } from './reorder.svelte.js'
 	import { ItemState } from './item-state.svelte.js'
 	import type { AreaState } from './area-state.svelte.js'
@@ -119,14 +115,12 @@
 		
 		current.area
 		untrack(() => {
-			// console.log($state.snapshot(closest), $state.snapshot(current.area?.items), $state.snapshot(current.area?.node))
 			for(const item of current.area?.items || []) {
 				if(!closest || (distance(trackedPosition, item.position) < closestDistance)) {
 					closest = item
 					closestDistance = distance(trackedPosition, item.position)
 				}
 			}
-			
 		})
 		return closest
 	})
