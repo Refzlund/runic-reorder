@@ -162,7 +162,9 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 	function area(node: HTMLElement, options?: AreaOptions<T>): { destroy(): void, update(options: AreaOptions<T>): void }
 	function area(array: T[]): ReturnType<Snippet>
 	function area(item: HTMLElement | T[], options: AreaOptions<T> = {}) {
-		if(typeof arguments[1] === 'function' || Array.isArray(item)) {
+		
+		// * Note, SvelteKit will provide 'out', 'css' and 'head' for arguments[0] when rendering a snippet
+		if(typeof arguments[1] === 'function' || 'out' in arguments[0] || Array.isArray(item)) {
 			const [anchor, array] = arguments as unknown as [HTMLElement, () => T[]]
 
 			tick().then(() => {
@@ -177,11 +179,11 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 					}
 				} while ((parent = parent?.parentElement) && parent !== document.body)
 			})
-			
+
 			return list(
 				anchor,
 				() => itemSnippet,
-				array,
+				array || (() => []),
 				() => (index: number) => getState(anchor, array(), index, () => itemSnippet)
 			) as ReturnType<Snippet>
 		}

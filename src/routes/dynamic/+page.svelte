@@ -1,5 +1,4 @@
 <script lang='ts'>
-
 	import reorder, { type ItemState } from 'runic-reorder'
 
 	let orphans = $state([{ text: 'Adopt me' }]) as Item[]
@@ -16,7 +15,6 @@
 
 </script>
 <!---------------------------------------------------->
-
 
 <button onclick={() => {
 	columns.push({ label: 'd', items: [{ text: 'New column' }] })

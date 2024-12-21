@@ -3,20 +3,17 @@
 	import type { ItemState } from './item-state.svelte.js'
 	import type { ContentSnippet } from './reorder.svelte.js'
 
-	declare const listSnip: (
+	declare const list: (
 		$anchor: HTMLElement,
 		content: () => ContentSnippet,
 		array: () => unknown[],
 		getState: () => (index: number) => ItemState
 	) => ReturnType<Snippet>
 
-	export function list(...args: Parameters<typeof listSnip>) {
-		return listSnip(...args)
-	}
-
+	export { list }
 </script>
 
-{#snippet listSnip(content: ContentSnippet, array: unknown[], getState: (index: number) => ItemState)}
+{#snippet list(content: ContentSnippet, array: unknown[], getState: (index: number) => ItemState)}
 	{#each array as item, i (item)}
 		{@const state = getState(i)}
 		{#if state.area}
