@@ -42,11 +42,10 @@ That's as simple as it gets. You can move items between each `use:area`. The `@r
 <br>
 
 > [!NOTE]  
-> Sadly, the `animate:` directive is not currently supported,
-> as the `@render area(...)` creates the `{@each items as item, i (item)}` loop.  
-> The `animate:` directive can currently not be used for snippet elements.
+> As of right now, the `animate:` directive cannot
+> be used with snippets.
 >
-> I'm currently planning on finding an alternative like `use:state.animate={flip}`.
+> [feat: enable `animate:` directive for snippets #14796](https://github.com/sveltejs/svelte/pull/14796)
 
 <br>
 <br>
