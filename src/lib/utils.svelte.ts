@@ -11,12 +11,12 @@ export function sameParent(node: HTMLElement, reference: HTMLElement) {
 }
 
 export function getPosition(node?: HTMLElement) {
-	if(!node) return { x: NaN, y: NaN }
+	if(!node) return { x: NaN, y: NaN, h: NaN, w: NaN }
 	const rect = node.getBoundingClientRect()
-	return { x: rect.left, y: rect.top }
+	return { x: rect.left, y: rect.top, h: rect.height, w: rect.width }
 }
 
-export function trackPosition(node: HTMLElement, isEnabled: () => boolean, setPosition: (position: { x: number, y: number }) => void) {
+export function trackPosition(node: HTMLElement, isEnabled: () => boolean, setPosition: (position: { x: number, y: number, h: number, w: number }) => void) {
 	const update = () => {
 		if (isEnabled()) {
 			setPosition(getPosition(node))

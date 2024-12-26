@@ -1,9 +1,9 @@
 import { mount, tick, unmount, untrack, type Snippet } from 'svelte'
 import { list } from './List.svelte'
-import Drag, { current, enterArea } from './Drag.svelte'
+import Drag, { current, enterArea, setDraggedElement } from './Drag.svelte'
 import { on } from 'svelte/events'
 import { ANCHOR, HANDLE, ItemState, POSITION, type HandleOptions } from './item-state.svelte.js'
-import { AreaState, ARRAY, type AreaOptions } from './area-state.svelte.js'
+import { AreaState, ARRAY, SPLICE_ARRAY, type AreaOptions } from './area-state.svelte.js'
 import { sameParent, trackPosition } from './utils.svelte.js'
 
 export type SnippetArgs<T = any> = [item: T, state: ItemState<T>]
@@ -15,7 +15,7 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 	let currentItem = $state(null) as T | null
 	const reorderState = {
 		// This over engineering is due to a false-positive
-		// `ownership_invalid_mutation` that you can only appears after building🤷
+		// `ownership_invalid_mutation` that only appears after building🤷
 		get reordering() {
 			return currentItem
 		},
@@ -25,13 +25,18 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 	}
 
 	function put(array: any[], index: number, item: any) {
+		// console.log(JSON.stringify($state.snapshot(current.array)), JSON.stringify($state.snapshot(array)))
+		// console.log(current.index, index)
+
+		if(current.array === array && current.index === index) return
+
 		current.array.splice(current.index, 1)
 		array.splice(index, 0, item)
 		current.array = array
 		current.index = index
 	}
 
-	function getState(anchor: HTMLElement, array: T[], index: number, content: () => ContentSnippet<T>) {
+	function getState(anchor: HTMLElement, array: T[], index: number, areaState: AreaState<T>, content: () => ContentSnippet<T>) {
 		const positioningEffect = (itemState: ItemState<T>) => () => {
 			itemState.positioning = reorderState.reordering === itemState.value
 			itemState.draggedIs = reorderState.reordering ? current.array === itemState.array ? (
@@ -49,8 +54,12 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 			untrack(() => {
 				if(!node) return
 				cleanPosition = trackPosition(node,
-					() => !!reorderState.reordering && itemState.area.isTarget,
-					position => { itemState[POSITION] = position }
+					() => {
+						return !!reorderState.reordering && itemState.area.isTarget
+					},
+					position => {
+						itemState[POSITION] = position
+					}
 				)
 			})
 			return cleanPosition
@@ -58,19 +67,19 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 		
 		return new ItemState({
 			anchor, array, index, areasMap, 
-			positioning: array === current.array && index === current.index,
+			positioning: false,
 			anchorAction: (itemState, setElement) => (node: HTMLElement) => {
 				const removeElement = setElement(node)
-				$effect.pre(positioningEffect(itemState))
-				$effect.pre(positionEffect(itemState))
+				$effect(positioningEffect(itemState))
+				$effect(positionEffect(itemState))
 				return { destroy() { removeElement() } }
 			},
 			handle: (itemState, setElement) => (node, options = {}) => {
 				const opts = $state(options)
 
 				const removeElement = setElement(node)
-				$effect.pre(positioningEffect(itemState))
-				$effect.pre(positionEffect(itemState))
+				$effect(positioningEffect(itemState))
+				$effect(positionEffect(itemState))
 
 				$effect(() => {
 					node.style.cursor = opts.cursor ? opts.cursor : 'grab'
@@ -91,7 +100,7 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 						target: document.body,
 						props: {
 							children: content() as ContentSnippet<unknown>,
-							args: [itemState.value, new ItemState({ dragging: true }, false)],
+							args: [itemState.value, new ItemState({ dragging: true })],
 							position: mousePosition,
 							offset: offset,
 							min: { height: rect.height, width: rect.width },
@@ -116,6 +125,14 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 				let cursorTimeoutId: ReturnType<typeof setTimeout> | undefined
 				$effect(() => on(node, 'pointerdown', e => {
 					e.preventDefault()
+					if(!opts.clickable) {
+						node.addEventListener('click', e => {
+							e.preventDefault()
+							e.stopPropagation()
+						}, { once: true, capture: true })
+						return startDrag(e)
+					}
+
 					if (opts.clickable) {
 						const cleanMove = on(document, 'pointermove', function (e) {
 							cleanMove()
@@ -143,7 +160,7 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 						})
 						return
 					}
-					startDrag(e)
+					
 				}))
 
 				return {
@@ -156,45 +173,59 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 					}
 				}
 			}
-		})
+		}, areaState)
 	}
 
 	function area(node: HTMLElement, options?: AreaOptions<T>): { destroy(): void, update(options: AreaOptions<T>): void }
-	function area(array: T[]): ReturnType<Snippet>
-	function area(item: HTMLElement | T[], options: AreaOptions<T> = {}) {
-		
-		// * Note, SvelteKit will provide 'out', 'css' and 'head' for arguments[0] when rendering a snippet
-		if(typeof arguments[1] === 'function' || 'out' in arguments[0] || Array.isArray(item)) {
-			const [anchor, array] = arguments as unknown as [HTMLElement, () => T[]]
+	function area(array: T[], spliceArray?: T[]): ReturnType<Snippet>
+	function area(item: HTMLElement | T[], options?: AreaOptions<T> | T[]) {
+		// * Note, SvelteKit will provide 'out', 'css' and 'head' for arguments[0] when server-rendering a snippet
+		const isServer = 'out' in arguments[0]
+		if (typeof arguments[1] === 'function' || isServer || Array.isArray(item)) {
+			const [anchor, array, spliceArray] = arguments as unknown as [HTMLElement, () => T[], () => T[]]
 
+			let areaState = $state() as AreaState<T>
 			tick().then(() => {
 				let parent = anchor.parentElement as HTMLElement | null | undefined
 				do {
-					const areaState = areasMap.get(parent!)
+					areaState = areasMap.get(parent!)!
 					if (areaState) {
 						if(areaState[ARRAY]) {
 							throw new Error('Areas only support listing one array as of right now.')
 						}
 						areaState[ARRAY] = array
+						areaState[SPLICE_ARRAY] = spliceArray
+						break
 					}
 				} while ((parent = parent?.parentElement) && parent !== document.body)
+				if (!areaState && !isServer) {
+					throw new Error('runic-reorder: List not inside an area. Make sure to use `use:area...` for a parent')
+				}
 			})
 
 			return list(
 				anchor,
 				() => itemSnippet,
+				() => areaState,
 				array || (() => []),
-				() => (index: number) => getState(anchor, array(), index, () => itemSnippet)
+				() => (index: number) => {
+					let result: ItemState<T>
+					untrack(() => {
+						result = getState(anchor, spliceArray?.() ?? array(), index, areaState, () => itemSnippet)
+					})
+					return result!
+				}
 			) as ReturnType<Snippet>
 		}
 
 		const node = item
-		const opts = $state(options)
+		
+		const opts = $state(options ?? {}) as AreaOptions<T>
 		let state = areasMap.get(node)
 		if(!state) {
 			state = new AreaState(node, () => opts)
+			areasMap.set(node, state)
 		}
-		areasMap.set(node, state)
 
 		if (opts.class) {
 			node.dataset.areaClass = opts.class

@@ -3,7 +3,7 @@
 
 	let orphans = $state([{ text: 'Adopt me' }]) as Item[]
 	let columns = $state([
-		{ label: 'a', items: [{ text: 'Some text' }] },
+		{ label: 'a', items: [{ text: 'Some text' }, { text: 'Test' }], },
 		{ label: 'b', items: [{ text: 'More text' }, { text: 'More text indeed' }] },
 		{ label: 'c', items: [] }
 	])
@@ -34,7 +34,7 @@
 {#snippet itemSnippet(item: Item, state: ItemState)}
 	<div
 		class='item'
-		use:state.handle={{ clickable: true }} 
+		use:state.handle={{ clickable: false }} 
 		onclick={() => { console.log('+1') }}
 		role='none'
 		style:opacity={state.positioning ? 0 : 1}

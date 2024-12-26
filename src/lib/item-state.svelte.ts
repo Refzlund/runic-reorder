@@ -1,6 +1,7 @@
 import { tick, untrack } from 'svelte'
 import type { AreaState } from './area-state.svelte.js'
 import { getPosition } from './utils.svelte.js'
+import { setDraggedElement } from './Drag.svelte'
 
 export interface HandleOptions {
 	/**
@@ -48,7 +49,11 @@ export class ItemState<T = any> {
 	 * 
 	 * @example use:handle={{ clickable: true }}
 	*/
-	handle = (_: HTMLElement, __?: HandleOptions) => {}
+	handle = (node: HTMLElement, _?: HandleOptions) => {
+		setTimeout(() => {
+			setDraggedElement(node)
+		}, 1)
+	}
 	/**
 	 * The anchor is the part that a dragged item will use to find the
 	 * closest item.
@@ -60,7 +65,11 @@ export class ItemState<T = any> {
 	 * 
 	 * @example use:anchor
 	*/
-	anchor = (_: HTMLElement) => {}
+	anchor = (node: HTMLElement) => {
+		setTimeout(() => {
+			setDraggedElement(node)
+		}, 2)
+	}
 
 	#handleElement?: HTMLElement = $state()
 	get [HANDLE]() { return this.#handleElement }
@@ -71,75 +80,51 @@ export class ItemState<T = any> {
 		const result = isNaN(this.#position.x) ? getPosition(this.#anchorElement ?? this.#handleElement) : this.#position
 		return result
 	})
-	#position = $state({ x: NaN, y: NaN })
+	#position = $state({ x: NaN, y: NaN, h: NaN, w: NaN }) // TODO: On enter area, update current position
+
+	updatePosition() {
+		this.#position = getPosition(this.#anchorElement ?? this.#handleElement)
+		return this.#position
+	}
+
 	get [POSITION]() { return this.#position }
 	set [POSITION](value) { this.#position = value }
 
-	/** The internal svelte $anchor */
-	#anchor = $state() as HTMLElement | undefined
-	#areasMap = $state() as WeakMap<HTMLElement, AreaState<T>> | undefined
-	#ticked = $state(false)
-	area = $derived.by(() => {
-		if (!this.#anchor || !this.#areasMap || !this.#ticked) return undefined as unknown as AreaState<T>
-
-		let parent = this.#anchor.parentElement as HTMLElement | null | undefined
-		do {
-			
-			const opts = this.#areasMap.get(parent!)
-			if (opts) {
-				return opts!
-			}
-		} while ((parent = parent?.parentElement) && parent !== document.body)
-		
-		return undefined as unknown as AreaState<T>
-	})
+	area = $state() as AreaState<T>
 
 	index = $state() as number
 	array = $state() as T[]
 	value = $state() as T
 
-	constructor(o: Construct<T>, getAreaOptions = true) {
-		if (getAreaOptions) {
-			tick().then(() => this.#ticked = true)
-			this.#anchor = o.anchor
-			this.#areasMap = o.areasMap
-		}
+	destroy() {
+		tick().then(() => {
+			if (this.area && !this.area.array!.includes(this.value)) {
+				this.area.items.splice(this.area.items.indexOf(this), 1)
+			}
+		})
+	}
 
-		if ($effect.tracking()) {
-			$effect(() => {
-				if(this.area) {
-					// When area is associated, add this item to the area
-					untrack(() => {
-						if (this.area.items.indexOf(this) === -1) {
-							this.area.items.push(this)
-						}
-					})
-				}
-				return () => {
-					if(this.area) {
-						const index = this.area.items.indexOf(this)
-						if(index !== -1) {
-							this.area.items.splice(index, 1)
-						}
-					}
-				}
-			})
+	constructor(o: Construct<T>, area?: AreaState<T>) {
+		this.area = area!
+
+		if(this.area) {
+			this.area.items.push(this)
 		}
 
 		this.index = o.index ?? 0
 		this.array = o.array ?? []
-		if(o.array && o.index !== undefined) {
+		if (o.array && o.index !== undefined) {
 			this.value = o.array[o.index]
 		}
 
 		this.positioning = o.positioning ?? false
 		this.dragging = o.dragging ?? false
-		this.handle = o.handle?.(this, 
+		this.handle = o.handle?.(this,
 			el => { this.#handleElement = el; return () => this.#handleElement === el && (this.#handleElement = undefined) }
-		) ?? (() => { })
+		) ?? this.handle
 		this.anchor = o.anchorAction?.(
 			this,
 			el => { this.#anchorElement = el; return () => this.#anchorElement === el && (this.#anchorElement = undefined) }
-		) ?? (() => { })
+		) ?? this.anchor
 	}
 }

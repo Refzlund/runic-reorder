@@ -1,27 +1,34 @@
 <script module lang='ts'>
-	import type { Snippet } from 'svelte'
+	import { tick, untrack, type Snippet } from 'svelte'
 	import type { ItemState } from './item-state.svelte.js'
 	import type { ContentSnippet } from './reorder.svelte.js'
+	import { AreaState } from './area-state.svelte.js'
 
 	declare const list: (
 		$anchor: HTMLElement,
 		content: () => ContentSnippet,
+		areaState: () => AreaState,
 		array: () => unknown[],
 		getState: () => (index: number) => ItemState
 	) => ReturnType<Snippet>
 
+
 	export { list }
 </script>
 
-{#snippet list(content: ContentSnippet, array: unknown[], getState: (index: number) => ItemState)}
-	{#each array as item, i (item)}
-		{@const state = getState(i)}
-		{#if state.area}
+{#snippet list(content: ContentSnippet, areaState: AreaState, array: unknown[], getState: (index: number) => ItemState)}
+	{#if areaState}
+		{#each array as item, i (item)}
+			{@const state = untrack(() => getState(i))}
+			{(() => {
+				$effect(() => {
+					state.index = i
+					return () => {
+						state.destroy()
+					}
+				})
+			})()}
 			{@render content(item, state)}
-		{:else}
-			{#await new Promise((resolve) => requestAnimationFrame(resolve)) then _}
-				{(() => { throw new Error('runic-reorder: List not inside an area. Make sure to use `use:order.area...` for a parent') })()}
-			{/await}
-		{/if}
-	{/each}
+		{/each}
+	{/if}
 {/snippet}

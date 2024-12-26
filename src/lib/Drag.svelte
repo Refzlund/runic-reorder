@@ -24,6 +24,13 @@
 		state.isTarget = true
 		
 		current.area = state
+		current.area.items.forEach(i => i.updatePosition())
+	}
+
+	let draggedElement = $state(null) as HTMLElement | null
+	
+	export function setDraggedElement(element: HTMLElement) {
+		draggedElement = element
 	}
 
 </script>
@@ -33,7 +40,7 @@
 	import type { ContentSnippet, SnippetArgs } from './reorder.svelte.js'
 	import { ItemState } from './item-state.svelte.js'
 	import type { AreaState } from './area-state.svelte.js'
-	import { onDestroy, tick, untrack } from 'svelte'
+	import { onDestroy, onMount, tick, untrack } from 'svelte'
 	import { getPosition, trackPosition } from './utils.svelte.js'
 
 	interface Props {
@@ -48,15 +55,14 @@
 	}
 
 	let { children, args, stop, position, offset, origin, min, put }: Props = $props()
-	
-	let draggedElement = $state(null) as HTMLElement | null
 
 	const mousePosition = $state(position)
 	const elementPosition = $derived({ 
 		x: current.area?.options.axis === 'y' ? position.x - offset.x :  mousePosition.x - offset.x, 
-		y: current.area?.options.axis === 'x' ? position.y - offset.y :  mousePosition.y - offset.y
+		y: current.area?.options.axis === 'x' ? position.y - offset.y :  mousePosition.y - offset.y,
 	})
-	let trackedPosition = $state({ x: 0, y: 0 })
+	let trackedPosition = $state(mousePosition)
+
 	$effect.pre(() => {
 		draggedElement
 		untrack(() => requestAnimationFrame(() => trackedPosition = getPosition(draggedElement!)))
@@ -88,6 +94,7 @@
 		delete origin.area.node.dataset.areaOrigin
 		delete current.area?.node.dataset.areaTarget
 		origin.area.isOrigin = false
+		draggedElement = null
 		if(current.area) {
 			current.area.isTarget = false
 		}
@@ -108,29 +115,73 @@
 		return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2)
 	}
 
+	/*
+		Via funny logic,
+		after 1ms of dragstart the handle is set to the "draggedElement"
+		after 2ms of dragstart the anchor is set to the "draggedElement" (overriding handle)
+
+		So we wait 5ms after drag to initiate logic determining positioning.
+	*/
+	let targetable = $state(false)
+	onMount(() => setTimeout(() => {
+		targetable = true
+	}, 5))
+
+	const targetPosition = $derived(draggedElement ? trackedPosition : mousePosition)
 	const targetItem = $derived.by(() => {
+		if(!targetable) return
+
 		let closest = undefined as undefined | ItemState
 		let closestDistance = Infinity
-		trackedPosition
-		
+
+		if(isNaN(targetPosition.x)) return
+
 		current.area
+		current.area?.items?.length
 		untrack(() => {
 			for(const item of current.area?.items || []) {
-				if(!closest || (distance(trackedPosition, item.position) < closestDistance)) {
+				if(!closest || (distance(targetPosition, item.position) < closestDistance)) {
 					closest = item
-					closestDistance = distance(trackedPosition, item.position)
+					closestDistance = distance(targetPosition, item.position)
 				}
 			}
 		})
 		return closest
 	})
+
 	const targetIndex = $derived(targetItem?.index || 0)
 
-	$effect.pre(() => {
-		if(!targetArray || targetIndex === -1) return
+	// Determine whether to position item before or after
+	function aboveOrBelow() {
+		const pos = targetPosition
+		const itemPos = targetItem?.position ?? { x: pos.x, y: pos.y, w: 0, h: 0 }
+		
+		// console.log(pos.y, itemPos.y)
+		// TODO Improve
+		if(pos.y < itemPos.y + itemPos.h * .6) {
+			return 0
+		}
+
+		return 1
+	}
+	
+	let ticked = $state(false)
+	$effect(() => {
+		if(!targetArray || targetIndex === -1 || !targetable) return
 		const isSelf = (targetItem && (targetItem.array === current.array && targetIndex === current.index)) || (targetItem?.value === currentItem)
 		if(isSelf) return
-		untrack(() => put(targetArray!, targetIndex, currentItem))
+		
+		untrack(() => {
+			if(ticked) return
+			ticked = true
+			requestAnimationFrame(() => ticked = false)
+
+			put(
+				targetArray!,
+				targetArray?.length === 1 ? aboveOrBelow() : targetIndex,
+				currentItem
+			)
+		})
 	})
 
 </script>
@@ -162,7 +213,6 @@
 
 <div
 	id='runic-drag'
-	bind:this={draggedElement}
 	data-area-class={current.area?.options?.class ?? ''}
 	style='
 		--x: {elementPosition.x}px;

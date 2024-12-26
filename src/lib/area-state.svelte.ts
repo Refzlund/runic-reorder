@@ -1,3 +1,4 @@
+import { SvelteMap } from 'svelte/reactivity'
 import type { ItemState } from './item-state.svelte.js'
 
 export type AreaOptions<T> = {
@@ -33,6 +34,7 @@ export type AreaOptions<T> = {
 }
 
 export const ARRAY = Symbol('runic-reorder.array')
+export const SPLICE_ARRAY = Symbol('runic-reorder.splice-array')
 export class AreaState<T = any> {
 	/** The area element */
 	node: HTMLElement
@@ -47,13 +49,32 @@ export class AreaState<T = any> {
 	isTarget = $state(false)
 	/** Did the dragged item come from here? */
 	isOrigin = $state(false)
-	/** The items (ItemState) that are within this area */
-	items = $state([] as ItemState<T>[])
-	/** The array associated with this area */
+	/** The items (ItemState) that are within this area. A map of the unique-keys, and its item state. */
+	items = $state([]) as ItemState<T>[]
+	
+	/** The array associated with this area that receives modifications */
 	get array() {
-		return this[ARRAY]?.()
+		return this[SPLICE_ARRAY]?.() ?? this[ARRAY]?.()
 	}
-	[ARRAY] = undefined as (() => T[]) | undefined
+
+	#array = $state() as (() => T[]) | undefined
+	#spliceArray = $state() as (() => T[]) | undefined
+
+	/** Array that is rendered (or modified if splice_array not provided) */
+	get [ARRAY]() {
+		return this.#array
+	} 
+	set [ARRAY](array) {
+		this.#array = array
+	}
+	
+	/** Array that receives modifications (e.g. splicing) */
+	get [SPLICE_ARRAY]() {
+		return this.#spliceArray
+	}
+	set [SPLICE_ARRAY](array) {
+		this.#spliceArray = array
+	}
 
 	constructor(node: HTMLElement, options: () => AreaOptions<T>) {
 		this.node = node
