@@ -50,8 +50,8 @@ export class AreaState<T = any> {
 	/** Did the dragged item come from here? */
 	isOrigin = $state(false)
 	/** The items (ItemState) that are within this area. A map of the unique-keys, and its item state. */
-	items = $state([]) as ItemState<T>[]
-	
+	items = new SvelteMap<T, ItemState<T>>()	
+
 	/** The array associated with this area that receives modifications */
 	get array() {
 		return this[SPLICE_ARRAY]?.() ?? this[ARRAY]?.()

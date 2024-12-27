@@ -1,7 +1,54 @@
 <script lang='ts'>
 	import reorder, { type ItemState } from 'runic-reorder'
+	import { onMount } from 'svelte'
 
-	let orphans = $state([{ text: 'Adopt me' }]) as Item[]
+	function timeout(ms: number, fn: () => void) {
+		let id = setTimeout(fn, ms)
+		return () => clearTimeout(id)
+	}
+
+	let orphans = $state([
+		{ text: '1' },
+		{ text: '2' },
+		{ text: '3' },
+		{ text: '4' },
+		{ text: '5' },
+		{ text: '6' },
+		{ text: '7' }
+	]) as Item[]
+	let orphans2 = $state([]) as Item[]
+
+	onMount(() => timeout(1000, () => {
+		orphans2 = [
+			{ text: 'a' },
+			{ text: 'b' },
+			{ text: 'c' },
+			{ text: 'd' },
+			{ text: 'e' },
+			{ text: 'f' },
+			{ text: 'g' },
+			{ text: 'h' },
+			{ text: 'i' },
+			{ text: 'j' },
+			{ text: 'k' },
+			{ text: 'l' },
+			{ text: 'm' },
+			{ text: 'n' },
+			{ text: 'o' },
+			{ text: 'p' },
+			{ text: 'q' },
+			{ text: 'r' },
+			{ text: 's' },
+			{ text: 't' },
+			{ text: 'u' },
+			{ text: 'v' },
+			{ text: 'w' },
+			{ text: 'x' },
+			{ text: 'y' },
+			{ text: 'z' }
+		]
+	}))
+
 	let columns = $state([
 		{ label: 'a', items: [{ text: 'Some text' }, { text: 'Test' }], },
 		{ label: 'b', items: [{ text: 'More text' }, { text: 'More text indeed' }] },
@@ -30,6 +77,17 @@
 	{@render columnArea(columns)}
 </div>
 
+<div class='items list' use:itemArea>
+	{@render itemArea({
+		get view() {
+			return orphans2
+		},
+		get modify() {
+			return orphans2
+		}
+	})}
+</div>
+
 
 {#snippet itemSnippet(item: Item, state: ItemState)}
 	<div
@@ -55,6 +113,15 @@
 
 <!---------------------------------------------------->
 <style>
+
+	.list {
+		display: flex;
+		flex-direction: column;
+		width: 200px;
+		height: 400px;
+		margin: 1rem;
+		overflow: auto;
+	}
 
 	:global(html) {
 		background-color: hsla(0, 0%, 85%, 1);

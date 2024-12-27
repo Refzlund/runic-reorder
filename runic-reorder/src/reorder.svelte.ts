@@ -1,6 +1,6 @@
 import { mount, tick, unmount, untrack, type Snippet } from 'svelte'
 import { list } from './List.svelte'
-import Drag, { current, enterArea, setDraggedElement } from './Drag.svelte'
+import Drag, { current, enterArea } from './Drag.svelte'
 import { on } from 'svelte/events'
 import { ANCHOR, HANDLE, ItemState, POSITION, type HandleOptions } from './item-state.svelte.js'
 import { AreaState, ARRAY, SPLICE_ARRAY, type AreaOptions } from './area-state.svelte.js'
@@ -8,6 +8,24 @@ import { sameParent, trackPosition } from './utils.svelte.js'
 
 export type SnippetArgs<T = any> = [item: T, state: ItemState<T>]
 export type ContentSnippet<T = any> = Snippet<SnippetArgs<T>>
+
+export interface AreaRenderOptions<T> {
+	/** The array that will be rendered via #each */
+	view: T[]
+	/**
+	 * If the viewed array is partial, this startIndex will be used
+	 * to get the index in the array: `{#each ..., i}` where `index = i + startIndex`
+	*/
+	startIndex?: number
+	/**
+	 * The array that receives modifications from reordering
+	*/
+	modify?: T[]
+}
+
+export interface InternalAreaRenderOptions<T> extends AreaRenderOptions<T> {
+	splice: T[]
+}
 
 export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 	const areasMap = new WeakMap<Node, AreaState<any>>()
@@ -25,18 +43,26 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 	}
 
 	function put(array: any[], index: number, item: any) {
-		// console.log(JSON.stringify($state.snapshot(current.array)), JSON.stringify($state.snapshot(array)))
-		// console.log(current.index, index)
-
 		if(current.array === array && current.index === index) return
-
 		current.array.splice(current.index, 1)
 		array.splice(index, 0, item)
 		current.array = array
 		current.index = index
 	}
 
-	function getState(anchor: HTMLElement, array: T[], index: number, areaState: AreaState<T>, content: () => ContentSnippet<T>) {
+	function getState(
+		{ anchor, options: listOptions, index, areaState, content, value }: {
+			anchor: HTMLElement,
+			options: InternalAreaRenderOptions<T>,
+			value: T,
+			index: number,
+			areaState: AreaState<T>,
+			content: () => ContentSnippet<T>
+		}
+	) {
+		let v = areaState.items.get(value)
+		if(v) return v
+
 		const positioningEffect = (itemState: ItemState<T>) => () => {
 			itemState.positioning = reorderState.reordering === itemState.value
 			itemState.draggedIs = reorderState.reordering ? current.array === itemState.array ? (
@@ -65,8 +91,8 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 			return cleanPosition
 		}
 		
-		return new ItemState({
-			anchor, array, index, areasMap, 
+		const itemState = new ItemState({
+			anchor, array: () => listOptions.splice, index, areasMap, value,
 			positioning: false,
 			anchorAction: (itemState, setElement) => (node: HTMLElement) => {
 				const removeElement = setElement(node)
@@ -93,18 +119,18 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 					current.index = itemState.index 
 
 					const offset = { x: e.clientX - rect.left, y: e.clientY - rect.top }
-					const mousePosition = { x: e.pageX, y: e.pageY }
+					const mousePosition = { x: e.clientX, y: e.clientY }
 
 					reorderState.reordering = itemState.value
 					dragged = mount(Drag, {
 						target: document.body,
 						props: {
 							children: content() as ContentSnippet<unknown>,
-							args: [itemState.value, new ItemState({ dragging: true })],
+							args: [itemState.value, new ItemState({ dragging: true, array: () => itemState.array, index: itemState.index })],
 							position: mousePosition,
 							offset: offset,
 							min: { height: rect.height, width: rect.width },
-							origin: { array, index, area: itemState.area },
+							origin: { array: listOptions.splice, index, area: itemState.area },
 							put,
 							
 							stop(e?: Event) {
@@ -174,15 +200,42 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 				}
 			}
 		}, areaState)
+
+		areaState.items.set(value, itemState)
+		return itemState
 	}
 
 	function area(node: HTMLElement, options?: AreaOptions<T>): { destroy(): void, update(options: AreaOptions<T>): void }
-	function area(array: T[], spliceArray?: T[]): ReturnType<Snippet>
-	function area(item: HTMLElement | T[], options?: AreaOptions<T> | T[]) {
+	function area(array: T[] | AreaRenderOptions<T>): ReturnType<Snippet>
+	function area(item: HTMLElement | T[] | AreaRenderOptions<T>, options?: AreaOptions<T>) {
 		// * Note, SvelteKit will provide 'out', 'css' and 'head' for arguments[0] when server-rendering a snippet
 		const isServer = 'out' in arguments[0]
-		if (typeof arguments[1] === 'function' || isServer || Array.isArray(item)) {
-			const [anchor, array, spliceArray] = arguments as unknown as [HTMLElement, () => T[], () => T[]]
+		const isList = typeof arguments[1] === 'function'
+		const isArray = isList && Array.isArray(arguments[1]())
+
+		if (isList || isServer) {
+			const [anchor, options] = arguments as unknown as [HTMLElement, (() => T[]) | (() => AreaRenderOptions<T>)]
+
+			const asOptions = options as () => AreaRenderOptions<T>
+			const asArray = options as () => T[]
+
+			const getArray = isServer
+				? () => options as unknown as T[]
+				: isArray ? asArray : () => asOptions().view
+
+			const opts = (isArray || isServer ? {} : asOptions()) as InternalAreaRenderOptions<T>
+			Object.defineProperties(opts, {
+				view: {
+					get() {
+						return getArray()
+					}
+				},
+				splice: {
+					get() {
+						return opts.modify ?? getArray()
+					},
+				}
+			})
 
 			let areaState = $state() as AreaState<T>
 			tick().then(() => {
@@ -191,10 +244,10 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 					areaState = areasMap.get(parent!)!
 					if (areaState) {
 						if(areaState[ARRAY]) {
-							throw new Error('Areas only support listing one array as of right now.')
+							throw new Error('runic-reorder: List already rendered inside this area.')
 						}
-						areaState[ARRAY] = array
-						areaState[SPLICE_ARRAY] = spliceArray
+						areaState[ARRAY] = () => opts.view
+						areaState[SPLICE_ARRAY] = () => opts.modify ?? opts.view
 						break
 					}
 				} while ((parent = parent?.parentElement) && parent !== document.body)
@@ -207,18 +260,23 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 				anchor,
 				() => itemSnippet,
 				() => areaState,
-				array || (() => []),
-				() => (index: number) => {
-					let result: ItemState<T>
-					untrack(() => {
-						result = getState(anchor, spliceArray?.() ?? array(), index, areaState, () => itemSnippet)
-					})
-					return result!
-				}
+				() => opts.view,
+				() => opts.startIndex ?? 0,
+				() => (value: T, index: number) => 
+					untrack(() => 
+						getState({
+							anchor,
+							value,
+							options: opts,
+							index: index + (opts.startIndex ?? 0),
+							areaState,
+							content: () => itemSnippet
+						})
+					)
 			) as ReturnType<Snippet>
 		}
 
-		const node = item
+		const node = item as HTMLElement
 		
 		const opts = $state(options ?? {}) as AreaOptions<T>
 		let state = areasMap.get(node)

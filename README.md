@@ -1,6 +1,6 @@
 # Runic Reorder
 
-Powered by Svelte 5's Runes, an extremely flexible and simple drag-and-drop api.
+Powered by Svelte 5's Runes, a performant, flexible and simple drag-and-drop api.
 
 [Svelte Playground](https://svelte.dev/playground/31789032177a44c3b6c92a46d2ea7e35?version=5.15.0)
 

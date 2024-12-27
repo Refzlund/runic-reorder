@@ -124,7 +124,8 @@
 	*/
 	let targetable = $state(false)
 	onMount(() => setTimeout(() => {
-		targetable = true
+		current.area?.items.forEach(i => i.updatePosition())
+		requestAnimationFrame(() => { targetable = true })
 	}, 5))
 
 	const targetPosition = $derived(draggedElement ? trackedPosition : mousePosition)
@@ -137,15 +138,18 @@
 		if(isNaN(targetPosition.x)) return
 
 		current.area
-		current.area?.items?.length
+		current.area?.items?.size
+		
 		untrack(() => {
-			for(const item of current.area?.items || []) {
+			for(const [_, item] of current.area?.items || []) {
+				if(isNaN(item.position.x)) continue
 				if(!closest || (distance(targetPosition, item.position) < closestDistance)) {
 					closest = item
 					closestDistance = distance(targetPosition, item.position)
 				}
 			}
 		})
+
 		return closest
 	})
 
@@ -174,7 +178,10 @@
 		untrack(() => {
 			if(ticked) return
 			ticked = true
-			requestAnimationFrame(() => ticked = false)
+			requestAnimationFrame(() => {
+				ticked = false
+				current.area?.items.forEach(i => i.updatePosition())
+			})
 
 			put(
 				targetArray!,
@@ -202,9 +209,10 @@
 			trackedPosition = getPosition(draggedElement)
 		}
 	}}
-	onscroll={() => {
+	onscrollcapture={() => {
 		if(draggedElement) {
 			trackedPosition = getPosition(draggedElement)
+			current.area?.items.forEach(i => i.updatePosition())
 		}
 	}}
 	onpointerup={stop}

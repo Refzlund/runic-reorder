@@ -22,8 +22,9 @@ type SetElement = (element?: HTMLElement) => CleanUp
 
 interface Construct<T> {
 	anchor?: HTMLElement
-	array?: T[]
+	array: () => T[]
 	index?: number
+	value?: T
 	areasMap?: WeakMap<HTMLElement, AreaState<T>>
 
 	handle?: (itemState: ItemState<T>, setHandleElement: SetElement) => (node: HTMLElement, options?: HandleOptions) => void
@@ -93,29 +94,22 @@ export class ItemState<T = any> {
 	area = $state() as AreaState<T>
 
 	index = $state() as number
-	array = $state() as T[]
+	get array() {
+		return this.#array()
+	}
+	#array: () => T[]	
 	value = $state() as T
 
 	destroy() {
-		tick().then(() => {
-			if (this.area && !this.area.array!.includes(this.value)) {
-				this.area.items.splice(this.area.items.indexOf(this), 1)
-			}
-		})
+		this.area.items.delete(this.value)
 	}
 
 	constructor(o: Construct<T>, area?: AreaState<T>) {
 		this.area = area!
 
-		if(this.area) {
-			this.area.items.push(this)
-		}
-
 		this.index = o.index ?? 0
-		this.array = o.array ?? []
-		if (o.array && o.index !== undefined) {
-			this.value = o.array[o.index]
-		}
+		this.#array = o.array
+		this.value = o.value ?? (o.index !== undefined ? o.array()[o.index] : undefined!)
 
 		this.positioning = o.positioning ?? false
 		this.dragging = o.dragging ?? false

@@ -9,22 +9,24 @@
 		content: () => ContentSnippet,
 		areaState: () => AreaState,
 		array: () => unknown[],
-		getState: () => (index: number) => ItemState
+		startIndex: () => number,
+		getState: () => (value: any, index: number) => ItemState
 	) => ReturnType<Snippet>
-
 
 	export { list }
 </script>
 
-{#snippet list(content: ContentSnippet, areaState: AreaState, array: unknown[], getState: (index: number) => ItemState)}
+{#snippet list(content: ContentSnippet, areaState: AreaState, array: unknown[], startIndex: number, getState: (value: any, index: number) => ItemState)}
 	{#if areaState}
 		{#each array as item, i (item)}
-			{@const state = untrack(() => getState(i))}
+			{@const state = untrack(() => getState(item, i))}
 			{(() => {
 				$effect(() => {
-					state.index = i
+					state.index = i + startIndex
 					return () => {
-						state.destroy()
+						if(state.index < startIndex || state.index >= startIndex + array.length) {
+							state.destroy()
+						}
 					}
 				})
 			})()}
