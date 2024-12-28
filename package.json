@@ -1,12 +1,16 @@
 {
+	"private": true,
 	"scripts": {
-		"app": "cd app && bun run dev"
+		"app": "cd app && bun run dev",
+		"package": "cd runic-reorder && bun run package",
+		"publish": "cd runic-reorder/npm && bun publish"
 	},
 	"workspaces": [
 		"./app",
 		"./runic-reorder"
 	],
 	"devDependencies": {
+		"@changesets/cli": "^2.27.11",
 		"@types/bun": "^1.1.14",
 		"@types/node": "^22.10.2"
 	}

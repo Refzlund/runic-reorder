@@ -74,6 +74,7 @@ let packagePath = Path.join(paths.npm, Path.basename(paths.package))
 let json = JSON.parse(fs.readFileSync(packagePath, 'utf-8'))
 delete json.devDependencies
 delete json.scripts
+delete json.private
 
 for (let [key, path] of Object.entries(json.exports) as [string, string][]) {
 	path = path.replace(/^\.\/src/, './dist')
