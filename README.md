@@ -10,26 +10,26 @@ Powered by Svelte 5's Runes, a performant, flexible and simple drag-and-drop api
 
 ```html
 <script lang='ts'>
-	import reorder, { type ItemState } from 'runic-reorder'
+    import reorder, { type ItemState } from 'runic-reorder'
 
-	let array = $state([
-		'a',
-		'b',
-		'c'
-	])
-	type Item = typeof array[number]
+    let array = $state([
+        'a',
+        'b',
+        'c'
+    ])
+    type Item = typeof array[number]
 
-	const area = reorder(content) // Reference the snippet
+    const area = reorder(content) // Reference the snippet
 </script>
 
 {#snippet content(item: Item, state: ItemState)}
-	<div use:state.handle>
-		{item}
-	</div>
+    <div use:state.handle>
+        {item}
+    </div>
 {/if}
 
 <div use:area>
-	{@render area(array)}
+    {@render area(array)}
 </div>
 
 ```
@@ -53,8 +53,8 @@ That's as simple as it gets. You can move items between each `use:area`. The `@r
 ## `reorder` and it's `area` return value
 ```ts
 const reorder: (snippet: Snippet<[item: T, state: ItemState<T>]>) =>
-	| function(node: HTMLElement, options: AreaOptions): { destroy(): void }
-	| function(array: T[] | AreaRenderOptions<T>): ReturnType<Snippet>
+    | function(node: HTMLElement, options: AreaOptions): { destroy(): void }
+    | function(array: T[] | AreaRenderOptions<T>): ReturnType<Snippet>
 ```
 
 When you create an area using `reorder(snippet)` it serves as a svelte action:
