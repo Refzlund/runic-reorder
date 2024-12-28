@@ -4,7 +4,7 @@ Powered by Svelte 5's Runes, a performant, flexible and simple drag-and-drop api
 
 [Svelte Playground](https://svelte.dev/playground/31789032177a44c3b6c92a46d2ea7e35?version=5.15.0)
 
-### Usage
+## Usage
 
 `bun add -D runic-reorder`
 
@@ -50,11 +50,11 @@ That's as simple as it gets. You can move items between each `use:area`. The `@r
 <br>
 <br>
 
-### `reorder` and it's `area` return value
+## `reorder` and it's `area` return value
 ```ts
 const reorder: (snippet: Snippet<[item: T, state: ItemState<T>]>) =>
 	| function(node: HTMLElement, options: AreaOptions): { destroy(): void }
-	| function(array: T[]): ReturnType<Snippet>
+	| function(array: T[] | AreaRenderOptions<T>): ReturnType<Snippet>
 ```
 
 When you create an area using `reorder(snippet)` it serves as a svelte action:
@@ -85,7 +85,7 @@ Using selectors such as `div[data-area-condition='true'] {...}`,
 
 You can provide each area with custom options, just for that specific area:
 
-#### `AreaOptions`
+### `AreaOptions`
 
 | Property | Type | Description |
 | --- | --- | --- |
@@ -97,7 +97,7 @@ You can provide each area with custom options, just for that specific area:
 
 <br>
 
-#### `HandleOptions`
+### `HandleOptions`
 
 | Property | Type | Description |
 | --- | --- | --- |
@@ -107,9 +107,9 @@ You can provide each area with custom options, just for that specific area:
 <br>
 <br>
 
-### ItemState and AreaState
+## ItemState and AreaState
 
-#### `ItemState`
+### `ItemState`
 
 | Property | Type | Description |
 | --- | --- | --- |
@@ -125,7 +125,7 @@ You can provide each area with custom options, just for that specific area:
 
 <br>
 
-#### `AreaState`
+### `AreaState`
 
 | Property | Type | Description |
 | --- | --- | --- |

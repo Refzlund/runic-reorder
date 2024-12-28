@@ -87,8 +87,12 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 		}
 		
 		const itemState = new ItemState({
-			anchor, array: () => listOptions.splice, index, areasMap, value,
-			positioning: false,
+			anchor, 
+			array: () => listOptions.splice,
+			index,
+			areasMap,
+			value,
+			positioning: current.area === areaState && current.index === index,
 			anchorAction: (itemState, setElement) => (node: HTMLElement) => {
 				const removeElement = setElement(node)
 				$effect(positioningEffect(itemState))
