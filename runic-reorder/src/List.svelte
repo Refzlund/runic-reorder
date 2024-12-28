@@ -21,10 +21,10 @@
 		{#each array as item, i (item)}
 			{@const state = untrack(() => getState(item, i))}
 			{(() => {
-				$effect(() => {
+				$effect.pre(() => {
 					state.index = i + startIndex
 					return () => {
-						if(state.index < startIndex || state.index >= startIndex + array.length) {
+						if(state.index < startIndex || state.index > startIndex + array.length) {
 							state.destroy()
 						}
 					}

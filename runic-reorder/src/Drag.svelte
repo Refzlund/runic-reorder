@@ -4,11 +4,16 @@
 
 	/** Current array and index that is being dragged */
 	export const current = $state({
-		array: [] as any[],
 		index: 0,
 		area: null as AreaState<any> | null
 	})
 
+	export const lastSplice = {
+		area: null as null | AreaState<any>,
+		index: -1
+	}
+
+	let enteredArea = false
 	export function enterArea(areaState: () => AreaState<any>) {
 		if(currentItem === null) return
 
@@ -25,6 +30,8 @@
 		
 		current.area = state
 		current.area.items.forEach(i => i.updatePosition())
+		enteredArea = true
+		tick().then(() => enteredArea = false)
 	}
 
 	let draggedElement = $state(null) as HTMLElement | null
@@ -51,7 +58,7 @@
 		origin: { array: any[], index: number, area: AreaState<any> }
 		min: { height: number, width: number }
 		stop(): void
-		put(array: any[], index: number, item: unknown): void
+		put(area: AreaState<any>, index: number, item: unknown): void
 	}
 
 	let { children, args, stop, position, offset, origin, min, put }: Props = $props()
@@ -77,7 +84,7 @@
 		...args[1],
 		dragging: true,
 		area: current.area,
-		array: current.array,
+		array: current.area.array,
 		index: current.index
 	} as ItemState)
 
@@ -101,16 +108,6 @@
 	})
 
 	// * Targeting position *
-	let targetArray = $state(current.area?.array)
-	$effect.pre(() => {
-		current.area
-		untrack(() => {
-			if(current.area?.array !== targetArray) {
-				targetArray = current.area?.array
-			}
-		})
-	})
-
 	function distance(a: { x: number, y: number }, b: { x: number, y: number }) {
 		return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2)
 	}
@@ -139,7 +136,7 @@
 
 		current.area
 		current.area?.items?.size
-		
+
 		untrack(() => {
 			for(const [_, item] of current.area?.items || []) {
 				if(isNaN(item.position.x)) continue
@@ -153,41 +150,42 @@
 		return closest
 	})
 
-	const targetIndex = $derived(targetItem?.index || 0)
+	const targetIndex = $derived(targetItem?.index ?? 0)
 
-	// Determine whether to position item before or after
-	function aboveOrBelow() {
-		const pos = targetPosition
-		const itemPos = targetItem?.position ?? { x: pos.x, y: pos.y, w: 0, h: 0 }
-		
-		// console.log(pos.y, itemPos.y)
-		// TODO Improve
-		if(pos.y < itemPos.y + itemPos.h * .6) {
-			return 0
-		}
-
-		return 1
+	let ticked = false
+	function untick() {
+		if(!ticked) return
+		ticked = false
+		current.area?.items.forEach(i => i.updatePosition())
 	}
-	
-	let ticked = $state(false)
+
+	let trigger = $state(false)
 	$effect(() => {
-		if(!targetArray || targetIndex === -1 || !targetable) return
-		const isSelf = (targetItem && (targetItem.array === current.array && targetIndex === current.index)) || (targetItem?.value === currentItem)
+		trigger
+		if(!current.area || targetIndex === -1 || !targetable) return
+		const isSelf = (targetItem && (targetItem.area === lastSplice.area && targetIndex === lastSplice.index)) || (targetItem?.value === currentItem)
 		if(isSelf) return
 		
 		untrack(() => {
 			if(ticked) return
 			ticked = true
-			requestAnimationFrame(() => {
-				ticked = false
-				current.area?.items.forEach(i => i.updatePosition())
-			})
 
+			requestAnimationFrame(untick)
+
+			let last = enteredArea && targetIndex === current.area!.items.size - 1
 			put(
-				targetArray!,
-				targetArray?.length === 1 ? aboveOrBelow() : targetIndex,
+				current.area!,
+				last ? targetIndex + 1 : targetIndex,
 				currentItem
 			)
+
+			if(last) {
+				tick().then(() => {
+					untick()
+					trackedPosition = trackedPosition
+					trigger = !trigger
+				})
+			}
 		})
 	})
 

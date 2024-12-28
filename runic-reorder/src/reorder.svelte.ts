@@ -1,6 +1,6 @@
 import { mount, tick, unmount, untrack, type Snippet } from 'svelte'
 import { list } from './List.svelte'
-import Drag, { current, enterArea } from './Drag.svelte'
+import Drag, { current, enterArea, lastSplice } from './Drag.svelte'
 import { on } from 'svelte/events'
 import { ANCHOR, HANDLE, ItemState, POSITION, type HandleOptions } from './item-state.svelte.js'
 import { AreaState, ARRAY, SPLICE_ARRAY, type AreaOptions } from './area-state.svelte.js'
@@ -42,11 +42,19 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 		}
 	}
 
-	function put(array: any[], index: number, item: any) {
-		if(current.array === array && current.index === index) return
-		current.array.splice(current.index, 1)
-		array.splice(index, 0, item)
-		current.array = array
+	function put(area: AreaState<T>, index: number, item: any) {
+		if (!lastSplice.area || (current.area === lastSplice.area && lastSplice.index === index))
+			return
+		lastSplice.area.array!.splice(current.index, 1)
+		area.array!.splice(index, 0, item)
+
+		if(lastSplice.area !== area) {
+			lastSplice.area.items.delete(item)
+		}
+
+		lastSplice.area = area
+		lastSplice.index = index
+		current.area = area
 		current.index = index
 	}
 
@@ -65,7 +73,7 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 
 		const positioningEffect = (itemState: ItemState<T>) => () => {
 			itemState.positioning = reorderState.reordering === itemState.value
-			itemState.draggedIs = reorderState.reordering ? current.array === itemState.array ? (
+			itemState.draggedIs = reorderState.reordering ? current.area === itemState.area ? (
 				current.index === itemState.index - 1 ? 'before' :
 				current.index === itemState.index + 1 ? 'after' :
 				undefined
@@ -115,8 +123,10 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 				function startDrag(e: PointerEvent) {
 					const rect = sameParent(node, anchor)!.getBoundingClientRect()
 
-					current.array = itemState.array
-					current.index = itemState.index 
+					current.area = itemState.area
+					current.index = itemState.index
+					lastSplice.area = itemState.area
+					lastSplice.index = itemState.index
 
 					const offset = { x: e.clientX - rect.left, y: e.clientY - rect.top }
 					const mousePosition = { x: e.clientX, y: e.clientY }
@@ -237,7 +247,7 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 				}
 			})
 
-			let areaState = $state() as AreaState<T>
+			let areaState = $state() as AreaState<T> // TODO: isServer ? new AreaState(...)
 			tick().then(() => {
 				let parent = anchor.parentElement as HTMLElement | null | undefined
 				do {
