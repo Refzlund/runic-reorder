@@ -1,25 +1,11 @@
 <script module lang='ts'>
 	
-	let currentItem = $state(null) as unknown | null
-
-	/** Current array and index that is being dragged */
-	export const current = $state({
-		index: 0,
-		area: null as AreaState<any> | null
-	})
-
-	export const lastSplice = {
-		area: null as null | AreaState<any>,
-		index: -1
-	}
-
-	let enteredArea = false
 	export function enterArea(areaState: () => AreaState<any>) {
-		if(currentItem === null) return
+		if(current.item === null) return
 
 		const state = areaState()
 		
-		if(state.options.condition && !state.options.condition(currentItem)) {
+		if(state.options.condition && !state.options.condition(current.item)) {
 			return
 		}
 		if(current.area) {
@@ -30,8 +16,8 @@
 		
 		current.area = state
 		current.area.items.forEach(i => i.updatePosition())
-		enteredArea = true
-		tick().then(() => enteredArea = false)
+		targeting.enteredArea = true
+		tick().then(() => targeting.enteredArea = false)
 	}
 
 	let draggedElement = $state(null) as HTMLElement | null
@@ -48,7 +34,8 @@
 	import { ItemState } from './item-state.svelte.js'
 	import type { AreaState } from './area-state.svelte.js'
 	import { onDestroy, onMount, tick, untrack } from 'svelte'
-	import { getPosition, trackPosition } from './utils.svelte.js'
+	import { getPosition } from './utils.svelte.js'
+	import { current, resetDragTargeting, targeting } from './reactivity.svelte.js'
 
 	interface Props {
 		children: ContentSnippet<unknown>
@@ -58,10 +45,9 @@
 		origin: { array: any[], index: number, area: AreaState<any> }
 		min: { height: number, width: number }
 		stop(): void
-		put(area: AreaState<any>, index: number, item: unknown): void
 	}
 
-	let { children, args, stop, position, offset, origin, min, put }: Props = $props()
+	let { children, args, stop, position, offset, origin, min }: Props = $props()
 
 	const mousePosition = $state(position)
 	const elementPosition = $derived({ 
@@ -78,7 +64,6 @@
 	current.area = origin.area
 	current.area.isOrigin = true
 	current.area.isTarget = true
-	currentItem = args[0]
 
 	let itemState = $derived({
 		...args[1],
@@ -97,7 +82,7 @@
 	})
 
 	onDestroy(() => {
-		currentItem = null
+		current.item = undefined
 		delete origin.area.node.dataset.areaOrigin
 		delete current.area?.node.dataset.areaTarget
 		origin.area.isOrigin = false
@@ -108,9 +93,9 @@
 	})
 
 	// * Targeting position *
-	function distance(a: { x: number, y: number }, b: { x: number, y: number }) {
-		return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2)
-	}
+	$effect.pre(() => {
+		Object.assign(targeting.position, draggedElement ? trackedPosition : mousePosition)
+	})
 
 	/*
 		Via funny logic,
@@ -119,74 +104,13 @@
 
 		So we wait 5ms after drag to initiate logic determining positioning.
 	*/
-	let targetable = $state(false)
 	onMount(() => setTimeout(() => {
 		current.area?.items.forEach(i => i.updatePosition())
-		requestAnimationFrame(() => { targetable = true })
+		requestAnimationFrame(() => { targeting.targetable = true })
 	}, 5))
 
-	const targetPosition = $derived(draggedElement ? trackedPosition : mousePosition)
-	const targetItem = $derived.by(() => {
-		if(!targetable) return
-
-		let closest = undefined as undefined | ItemState
-		let closestDistance = Infinity
-
-		if(isNaN(targetPosition.x)) return
-
-		current.area
-		current.area?.items?.size
-
-		untrack(() => {
-			for(const [_, item] of current.area?.items || []) {
-				if(isNaN(item.position.x)) continue
-				if(!closest || (distance(targetPosition, item.position) < closestDistance)) {
-					closest = item
-					closestDistance = distance(targetPosition, item.position)
-				}
-			}
-		})
-
-		return closest
-	})
-
-	const targetIndex = $derived(targetItem?.index ?? 0)
-
-	let ticked = false
-	function untick() {
-		if(!ticked) return
-		ticked = false
-		current.area?.items.forEach(i => i.updatePosition())
-	}
-
-	let trigger = $state(false)
-	$effect(() => {
-		trigger
-		if(!current.area || targetIndex === -1 || !targetable) return
-		const isSelf = (targetItem && (targetItem.area === lastSplice.area && targetIndex === lastSplice.index)) || (targetItem?.value === currentItem)
-		if(isSelf) return
-		
-		untrack(() => {
-			if(ticked) return
-			ticked = true
-
-			requestAnimationFrame(untick)
-
-			let last = enteredArea && targetIndex === current.area!.items.size - 1
-			put(
-				current.area!,
-				last ? targetIndex + 1 : targetIndex,
-				currentItem
-			)
-
-			if(last) {
-				tick().then(() => {
-					untick()
-					trackedPosition = trackedPosition
-					trigger = !trigger
-				})
-			}
-		})
+	onDestroy(() => {
+		resetDragTargeting()
 	})
 
 </script>
@@ -206,16 +130,19 @@
 		if(draggedElement) {
 			trackedPosition = getPosition(draggedElement)
 		}
+
+		targeting.positionTrigger = !targeting.positionTrigger
 	}}
 	onscrollcapture={() => {
 		if(draggedElement) {
 			trackedPosition = getPosition(draggedElement)
 			current.area?.items.forEach(i => i.updatePosition())
 		}
+		
+		targeting.positionTrigger = !targeting.positionTrigger
 	}}
 	onpointerup={stop}
 ></svelte:window>
-
 
 <div
 	id='runic-drag'
@@ -227,9 +154,8 @@
 		--h: {min.height ?? 0}px;
 	'
 >
-	{@render children(currentItem, itemState)}
+	{@render children(current.item, itemState)}
 </div>
-
 
 <style>
 

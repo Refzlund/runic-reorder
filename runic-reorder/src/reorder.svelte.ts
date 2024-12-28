@@ -1,10 +1,11 @@
 import { mount, tick, unmount, untrack, type Snippet } from 'svelte'
 import { list } from './List.svelte'
-import Drag, { current, enterArea, lastSplice } from './Drag.svelte'
+import Drag, { enterArea } from './Drag.svelte'
 import { on } from 'svelte/events'
 import { ANCHOR, HANDLE, ItemState, POSITION, type HandleOptions } from './item-state.svelte.js'
 import { AreaState, ARRAY, SPLICE_ARRAY, type AreaOptions } from './area-state.svelte.js'
 import { sameParent, trackPosition } from './utils.svelte.js'
+import { current, dragReactivity, lastSplice } from './reactivity.svelte'
 
 export type SnippetArgs<T = any> = [item: T, state: ItemState<T>]
 export type ContentSnippet<T = any> = Snippet<SnippetArgs<T>>
@@ -42,21 +43,7 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 		}
 	}
 
-	function put(area: AreaState<T>, index: number, item: any) {
-		if (!lastSplice.area || (current.area === lastSplice.area && lastSplice.index === index))
-			return
-		lastSplice.area.array!.splice(current.index, 1)
-		area.array!.splice(index, 0, item)
-
-		if(lastSplice.area !== area) {
-			lastSplice.area.items.delete(item)
-		}
-
-		lastSplice.area = area
-		lastSplice.index = index
-		current.area = area
-		current.index = index
-	}
+	dragReactivity(() => !!reorderState.reordering)
 
 	function getState(
 		{ anchor, options: listOptions, index, areaState, content, value }: {
@@ -125,6 +112,7 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 
 					current.area = itemState.area
 					current.index = itemState.index
+					current.item = itemState.value
 					lastSplice.area = itemState.area
 					lastSplice.index = itemState.index
 
@@ -141,7 +129,6 @@ export function reorder<T>(itemSnippet: ContentSnippet<T>) {
 							offset: offset,
 							min: { height: rect.height, width: rect.width },
 							origin: { array: listOptions.splice, index, area: itemState.area },
-							put,
 							
 							stop(e?: Event) {
 								e?.preventDefault()

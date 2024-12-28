@@ -1,6 +1,6 @@
 {
 	"name": "runic-reorder",
-	"version": "1.0.0",
+	"version": "1.0.0-next.20",
 	"private": true,
 	"repository": {
 		"type": "git",
