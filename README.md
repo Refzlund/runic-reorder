@@ -26,7 +26,7 @@ Powered by Svelte 5's Runes, a performant, flexible and simple drag-and-drop api
     <div use:state.handle>
         {item}
     </div>
-{/if}
+{/snippet}
 
 <div use:area>
     {@render area(array)}
